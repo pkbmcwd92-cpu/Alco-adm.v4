@@ -276,6 +276,7 @@ export const AdministrationHub: React.FC<AdministrationHubProps> = ({
             profile={profile}
             academicSetting={academicSetting}
             atp={atp}
+            k13Analysis={k13Analysis}
             calendar={calendar}
             calendarDays={calendarDays}
             timeAllocations={timeAllocations}

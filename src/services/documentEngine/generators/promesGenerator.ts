@@ -19,6 +19,7 @@ import {
   createTableDataCell,
   createSignoffBlock,
 } from '../docxStyles';
+import { getSubjectJP, calculateAvailableJP, calculateEffectiveDays } from '../../jpEngine';
 
 export async function generatePROMES(context: DocumentGenerationContext): Promise<GeneratedDocumentResult> {
   const { school, profile, academicSetting, atp } = context;
@@ -28,23 +29,60 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
   const isSemesterGanjil =
     academicSetting.semester?.includes('1') || academicSetting.semester?.toLowerCase().includes('ganjil');
   const semesterLabel = isSemesterGanjil ? 'Semester 1 (Ganjil)' : 'Semester 2 (Genap)';
+  const semesterKey = isSemesterGanjil ? 'SEMESTER_1' : 'SEMESTER_2';
   const months = isSemesterGanjil
     ? ['Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
     : ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni'];
+
+  // Look up verified official rule
+  const officialRule = getSubjectJP({
+    curriculum: academicSetting.curriculum,
+    level: academicSetting.level,
+    grade: academicSetting.grade,
+    subject: academicSetting.subject,
+  });
+
+  const weeklyJP = academicSetting.subjectWeeklyJP || academicSetting.totalHoursPerWeek || officialRule.weeklyJP || 4;
+
+  const schoolDaysPerWeek = 5;
+  const effectiveResult = calculateEffectiveDays(
+    {
+      startDate: isSemesterGanjil ? '2026-07-15' : '2027-01-05',
+      endDate: isSemesterGanjil ? '2026-12-20' : '2027-06-25',
+      schoolDaysPerWeek,
+      semester: semesterLabel,
+      academicYear: academicSetting.academicYear || '2026/2027',
+    },
+    context.calendarDays || []
+  );
+
+  const availableJP = calculateAvailableJP({
+    subjectWeeklyJP: weeklyJP,
+    effectiveLearningDays: effectiveResult.effectiveLearningDays || 90,
+    schoolDaysPerWeek,
+    semester: semesterKey,
+    academicYear: academicSetting.academicYear || '2026/2027',
+    level: academicSetting.level,
+    grade: academicSetting.grade,
+    subject: academicSetting.subject,
+    officialAnnualJP: officialRule.annualJP,
+  });
 
   // 1. Header
   docChildren.push(
     ...createDocumentHeader(
       'PROGRAM SEMESTER (PROMES)',
-      `${academicSetting.curriculum} — ${semesterLabel.toUpperCase()} TP ${academicSetting.academicYear || '2025/2026'}`
+      `${academicSetting.curriculum} — ${semesterLabel.toUpperCase()} TP ${academicSetting.academicYear || '2026/2027'}`
     )
   );
 
   // 2. Identity Box
   docChildren.push(
     createIdentityMetadataTable(school, profile, academicSetting, [
-      ['Jumlah Jam per Minggu', `: ${academicSetting.totalHoursPerWeek || 4} JP`],
-      ['Total Minggu Efektif', `: 18 Minggu Efektif`],
+      ['Alokasi Intrakurikuler per Minggu', `: ${weeklyJP} JP / Minggu`],
+      ['Minggu Efektif Semester', `: ${availableJP.effectiveWeeksRounded} Minggu (${effectiveResult.effectiveLearningDays || 90} Hari Efektif)`],
+      ['Total Alokasi Waktu Semester', `: ${availableJP.availableJP} JP`],
+      ['Dasar Regulasi Struktur', `: ${officialRule.regulation}`],
     ])
   );
   docChildren.push(new Paragraph({ spacing: { after: 180 } }));
@@ -91,7 +129,7 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
   if (isK13Curriculum) {
     const k13Items = context.k13Analysis?.items || [];
     dataRows = k13Items.map((item, idx) => {
-      const jp = Number(academicSetting.totalHoursPerWeek) || 4;
+      const jp = weeklyJP;
       totalJp += jp;
 
       const targetMonthIdx = idx % 6;
@@ -110,7 +148,7 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
             children: [
               new Paragraph({
                 children: [
-                  new TextRun({ text: item.indikator || item.materi, size: 19, font: 'Arial' }),
+                  new TextRun({ text: item.indikator || item.materi || '-', size: 19, font: 'Arial' }),
                   item.materi
                     ? new TextRun({ text: `\nMateri: ${item.materi}`, italics: true, size: 18, color: '475569' })
                     : new TextRun({ text: '' }),
@@ -127,7 +165,7 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
     const items = atp?.items && atp.items.length > 0 ? atp.items : [];
 
     dataRows = items.map((item, idx) => {
-      const jp = Number(item.jp) || 4;
+      const jp = Number(item.jp) || weeklyJP;
       totalJp += jp;
 
       // Distribute JP across the 6 months in a realistic staggered pattern
@@ -162,8 +200,8 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
     });
   }
 
-  // Asesmen Sumatif & Remedial Row
-  const evaluasiJp = 4;
+  // Asesmen Sumatif & Evaluasi Row
+  const evaluasiJp = Math.max(2, weeklyJP);
   totalJp += evaluasiJp;
   const evaluasiMonthCells = months.map((_, mIdx) =>
     createTableDataCell(mIdx === 5 ? `${evaluasiJp}` : '-', 7, AlignmentType.CENTER)
@@ -172,8 +210,8 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
   const evaluasiRow = new TableRow({
     children: [
       createTableDataCell(`${dataRows.length + 1}`, 5, AlignmentType.CENTER),
-      createTableDataCell('-', 10, AlignmentType.CENTER),
-      createTableDataCell('Asesmen Sumatif Akhir Semester & Tindak Lanjut Remedial/Pengayaan', 33),
+      createTableDataCell('-', isK13Curriculum ? 15 : 10, AlignmentType.CENTER),
+      createTableDataCell('Asesmen Sumatif Akhir Semester & Tindak Lanjut Evaluasi', isK13Curriculum ? 28 : 33),
       createTableDataCell(`${evaluasiJp} JP`, 10, AlignmentType.CENTER, true),
       ...evaluasiMonthCells,
     ],
@@ -184,7 +222,7 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
   const totalRow = new TableRow({
     children: [
       new TableCell({
-        width: { size: 48, type: WidthType.PERCENTAGE },
+        width: { size: isK13Curriculum ? 48 : 48, type: WidthType.PERCENTAGE },
         columnSpan: 3,
         margins: { top: 100, bottom: 100, left: 120, right: 120 },
         children: [
@@ -230,7 +268,7 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
       spacing: { after: 120 },
       children: [
         new TextRun({
-          text: '1. Angka pada kolom bulan menunjukkan alokasi jam pelajaran (JP) tatap muka per unit materi.\n2. Jadwal mingguan dapat disesuaikan dengan kalender pendidikan dan agenda khusus satuan pendidikan.',
+          text: '1. Angka pada kolom bulan menunjukkan alokasi jam pelajaran (JP) intrakurikuler tatap muka per unit materi.\n2. Distribusi waktu dirancang berdasar kalender pendidikan satuan pendidikan dan panduan resmi Kemendikdasmen.',
           size: 18,
           font: 'Arial',
           italics: true,

@@ -19,34 +19,58 @@ import {
   createTableDataCell,
   createSignoffBlock,
 } from '../docxStyles';
+import { getSubjectJP } from '../../jpEngine';
 
 export async function generateAlokasiWaktu(context: DocumentGenerationContext): Promise<GeneratedDocumentResult> {
-  const { school, profile, academicSetting, atp, calendar, timeAllocations } = context;
+  const { school, profile, academicSetting, atp, calendar, timeAllocations, k13Analysis } = context;
 
   const docChildren: (Paragraph | Table)[] = [];
 
+  const isK13Curriculum = academicSetting.curriculumType === 'K13' || academicSetting.curriculum === 'Kurikulum 2013';
+
+  // Look up verified official rule
+  const officialRule = getSubjectJP({
+    curriculum: academicSetting.curriculum,
+    level: academicSetting.level,
+    grade: academicSetting.grade,
+    subject: academicSetting.subject,
+  });
+
+  const weeklyJP = academicSetting.subjectWeeklyJP || calendar?.jpPerWeek || academicSetting.totalHoursPerWeek || officialRule.weeklyJP || 4;
+
   // Header
-  docChildren.push(...createDocumentHeader('DISTRIBUSI ALOKASI WAKTU PEMBELAJARAN', academicSetting.curriculum));
+  docChildren.push(
+    ...createDocumentHeader(
+      'RINCIAN DISTRIBUSI ALOKASI WAKTU PEMBELAJARAN',
+      `${academicSetting.curriculum} — TP ${academicSetting.academicYear || '2026/2027'}`
+    )
+  );
 
   // Metadata Table
-  const totalATPJP = atp?.items?.reduce((acc, curr) => acc + (Number(curr.jp) || 0), 0) || 0;
+  const totalATPJP = isK13Curriculum
+    ? (k13Analysis?.items?.length || 0) * weeklyJP
+    : atp?.items?.reduce((acc, curr) => acc + (Number(curr.jp) || 0), 0) || 0;
+
   docChildren.push(
     createIdentityMetadataTable(school, profile, academicSetting, [
-      ['Tahun Ajaran / Semester', `: ${academicSetting.academicYear} / ${academicSetting.semester}`],
-      ['Beban JP per Minggu', `: ${calendar?.jpPerWeek || academicSetting.totalHoursPerWeek || 4} JP`],
-      ['Total Alokasi Waktu ATP', `: ${totalATPJP} Jam Pelajaran (JP)`],
+      ['Tahun Ajaran / Semester', `: ${academicSetting.academicYear || '2026/2027'} / ${academicSetting.semester || 'Semester 1'}`],
+      ['Beban JP Intrakurikuler per Minggu', `: ${weeklyJP} JP / Minggu`],
+      ['Total Alokasi Pembelajaran Terdata', `: ${totalATPJP} Jam Pelajaran (JP)`],
+      ['Dasar Regulasi Struktur', `: ${officialRule.regulation}`],
     ])
   );
   docChildren.push(new Paragraph({ spacing: { after: 180 } }));
 
-  // Section: Distribusi Per Tujuan Pembelajaran
+  // Section
   docChildren.push(
     new Paragraph({
       heading: HeadingLevel.HEADING_3,
       spacing: { before: 120, after: 80 },
       children: [
         new TextRun({
-          text: 'A. Pemetaan Waktu Berdasarkan Alur Tujuan Pembelajaran (ATP)',
+          text: isK13Curriculum
+            ? 'A. Pemetaan Waktu Berdasarkan Analisis Kompetensi Dasar (KD)'
+            : 'A. Pemetaan Waktu Berdasarkan Alur Tujuan Pembelajaran (ATP)',
           bold: true,
           size: 22,
           font: 'Arial',
@@ -56,13 +80,12 @@ export async function generateAlokasiWaktu(context: DocumentGenerationContext): 
     })
   );
 
-  const atpItems = atp?.items || [];
   const rows: TableRow[] = [
     new TableRow({
       children: [
         createTableHeaderCell('No', 8, AlignmentType.CENTER),
-        createTableHeaderCell('Kode TP', 14, AlignmentType.CENTER),
-        createTableHeaderCell('Tujuan Pembelajaran (TP) & Lingkup Materi', 50, AlignmentType.LEFT),
+        createTableHeaderCell(isK13Curriculum ? 'Kompetensi Dasar (KD)' : 'Kode TP', 16, AlignmentType.CENTER),
+        createTableHeaderCell(isK13Curriculum ? 'Materi Pokok & Kegiatan' : 'Tujuan Pembelajaran (TP) & Lingkup Materi', 48, AlignmentType.LEFT),
         createTableHeaderCell('Alokasi JP', 14, AlignmentType.CENTER),
         createTableHeaderCell('Distribusi Pekan Ke-', 14, AlignmentType.CENTER),
       ],
@@ -70,46 +93,83 @@ export async function generateAlokasiWaktu(context: DocumentGenerationContext): 
   ];
 
   let cumulativeWeeks = 0;
-  const jpPerWeek = calendar?.jpPerWeek || Number(academicSetting.totalHoursPerWeek) || 4;
 
-  if (atpItems.length === 0) {
-    rows.push(
-      new TableRow({
-        children: [
-          createTableDataCell('1', 8, AlignmentType.CENTER),
-          createTableDataCell('TP 1', 14, AlignmentType.CENTER),
-          createTableDataCell('Tujuan Pembelajaran Semester Aktif', 50),
-          createTableDataCell(`${jpPerWeek * 2} JP`, 14, AlignmentType.CENTER),
-          createTableDataCell('Pekan 1 - 2', 14, AlignmentType.CENTER),
-        ],
-      })
-    );
-  } else {
-    atpItems.forEach((item, index) => {
-      const itemJP = Number(item.jp) || jpPerWeek;
-      const estimatedWeeks = Math.max(1, Math.ceil(itemJP / jpPerWeek));
-      const startW = cumulativeWeeks + 1;
-      const endW = cumulativeWeeks + estimatedWeeks;
-      cumulativeWeeks = endW;
-
-      const matchedAlloc = (timeAllocations || []).find((t) => t.tpId === item.id || t.atpItemId === item.id);
-      const weekDisplay = matchedAlloc?.weekNumber ? `Pekan ${matchedAlloc.weekNumber}` : startW === endW ? `Pekan ${startW}` : `Pekan ${startW} - ${endW}`;
-
+  if (isK13Curriculum) {
+    const k13Items = k13Analysis?.items || [];
+    if (k13Items.length === 0) {
       rows.push(
         new TableRow({
           children: [
-            createTableDataCell((index + 1).toString(), 8, AlignmentType.CENTER),
-            createTableDataCell(item.tpCode || `TP.${index + 1}`, 14, AlignmentType.CENTER),
-            createTableDataCell(
-              `${item.tpStatement || '-'}\n• Materi: ${item.materialScope || '-'}`,
-              50
-            ),
-            createTableDataCell(`${itemJP} JP`, 14, AlignmentType.CENTER),
-            createTableDataCell(weekDisplay, 14, AlignmentType.CENTER),
+            createTableDataCell('1', 8, AlignmentType.CENTER),
+            createTableDataCell('KD 3.1 & 4.1', 16, AlignmentType.CENTER),
+            createTableDataCell('Kompetensi Dasar Semester Aktif', 48),
+            createTableDataCell(`${weeklyJP * 2} JP`, 14, AlignmentType.CENTER),
+            createTableDataCell('Pekan 1 - 2', 14, AlignmentType.CENTER),
           ],
         })
       );
-    });
+    } else {
+      k13Items.forEach((item, index) => {
+        const itemJP = weeklyJP;
+        const estimatedWeeks = Math.max(1, Math.ceil(itemJP / weeklyJP));
+        const startW = cumulativeWeeks + 1;
+        const endW = cumulativeWeeks + estimatedWeeks;
+        cumulativeWeeks = endW;
+
+        rows.push(
+          new TableRow({
+            children: [
+              createTableDataCell((index + 1).toString(), 8, AlignmentType.CENTER),
+              createTableDataCell(item.kd, 16, AlignmentType.LEFT, true),
+              createTableDataCell(`${item.materi || '-'}\n• Kegiatan: ${item.kegiatan || '-'}`, 48),
+              createTableDataCell(`${itemJP} JP`, 14, AlignmentType.CENTER, true),
+              createTableDataCell(startW === endW ? `Pekan ${startW}` : `Pekan ${startW} - ${endW}`, 14, AlignmentType.CENTER),
+            ],
+          })
+        );
+      });
+    }
+  } else {
+    const atpItems = atp?.items || [];
+    if (atpItems.length === 0) {
+      rows.push(
+        new TableRow({
+          children: [
+            createTableDataCell('1', 8, AlignmentType.CENTER),
+            createTableDataCell('TP 1', 16, AlignmentType.CENTER),
+            createTableDataCell('Tujuan Pembelajaran Semester Aktif', 48),
+            createTableDataCell(`${weeklyJP * 2} JP`, 14, AlignmentType.CENTER),
+            createTableDataCell('Pekan 1 - 2', 14, AlignmentType.CENTER),
+          ],
+        })
+      );
+    } else {
+      atpItems.forEach((item, index) => {
+        const itemJP = Number(item.jp) || weeklyJP;
+        const estimatedWeeks = Math.max(1, Math.ceil(itemJP / weeklyJP));
+        const startW = cumulativeWeeks + 1;
+        const endW = cumulativeWeeks + estimatedWeeks;
+        cumulativeWeeks = endW;
+
+        const matchedAlloc = (timeAllocations || []).find((t) => t.tpId === item.id || t.atpItemId === item.id);
+        const weekDisplay = matchedAlloc?.weekNumber ? `Pekan ${matchedAlloc.weekNumber}` : startW === endW ? `Pekan ${startW}` : `Pekan ${startW} - ${endW}`;
+
+        rows.push(
+          new TableRow({
+            children: [
+              createTableDataCell((index + 1).toString(), 8, AlignmentType.CENTER),
+              createTableDataCell(item.tpCode || `TP.${index + 1}`, 16, AlignmentType.CENTER),
+              createTableDataCell(
+                `${item.tpStatement || '-'}\n• Ruang Lingkup Materi: ${item.materialScope || '-'}`,
+                48
+              ),
+              createTableDataCell(`${itemJP} JP`, 14, AlignmentType.CENTER, true),
+              createTableDataCell(weekDisplay, 14, AlignmentType.CENTER),
+            ],
+          })
+        );
+      });
+    }
   }
 
   // Summary row
@@ -117,8 +177,8 @@ export async function generateAlokasiWaktu(context: DocumentGenerationContext): 
     new TableRow({
       children: [
         createTableHeaderCell('', 8, AlignmentType.CENTER),
-        createTableHeaderCell('TOTAL', 14, AlignmentType.CENTER),
-        createTableHeaderCell('Total Beban Belajar Terstruktur Semester', 50, AlignmentType.LEFT),
+        createTableHeaderCell('TOTAL', 16, AlignmentType.CENTER),
+        createTableHeaderCell('Total Alokasi Waktu Pembelajaran Terjadwal', 48, AlignmentType.LEFT),
         createTableHeaderCell(`${totalATPJP} JP`, 14, AlignmentType.CENTER),
         createTableHeaderCell(`± ${cumulativeWeeks} Pekan`, 14, AlignmentType.CENTER),
       ],

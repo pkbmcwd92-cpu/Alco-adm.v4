@@ -1,31 +1,58 @@
 import { CurriculumType } from './index';
 
 export type JPVerificationStatus = 'VERIFIED' | 'UNVERIFIED';
+export type JPSourceType = 'OFFICIAL' | 'USER_OVERRIDE' | 'UNVERIFIED' | 'LEGACY_VALUE';
 
 /**
- * Model Master Struktur Kurikulum Resmi Pemerintah
+ * Metadata Sumber Regulasi Resmi
  */
-export interface MasterCurriculumStructure {
+export interface RegulatorySource {
   id: string;
-  curriculum: string; // e.g. "Kurikulum Merdeka", "Kurikulum 2013"
-  curriculumType: CurriculumType; // 'KURIKULUM_MERDEKA' | 'K13'
-  regulation: string; // e.g. "Kepmendikbudristek No. 12/2024", "Permendikbud No. 37/2018"
-  regulationYear: string | number; // "2024", "2018"
-  level: 'PAUD' | 'SD' | 'SMP' | 'SMA' | 'SMK';
-  phase?: string; // "Fase Pondasi", "Fase A", "Fase B", "Fase C", "Fase D", "Fase E", "Fase F"
-  grade: string; // e.g. "Kelas 1", "Kelas 4", "Kelas 7", "Kelas 10"
-  subject: string; // e.g. "Pendidikan Pancasila", "Bahasa Indonesia", "PJOK"
-  weeklyJP: number; // Alokasi Tatap Muka / Intrakurikuler per Minggu
-  annualJP: number; // Alokasi Total JP Intrakurikuler per Tahun
-  kokurikulerJP?: number; // Alokasi P5 / Kokurikuler per Tahun (jika ada)
-  totalAnnualJP?: number; // Total Intrakurikuler + Kokurikuler per Tahun
-  source: string; // e.g. "BSKAP Kemendikbudristek RI"
-  sourceUrl?: string; // e.g. "https://kurikulum.kemdikbud.go.id"
-  effectiveFrom: string; // YYYY-MM-DD
-  effectiveUntil?: string; // YYYY-MM-DD (jika sudah dicabut/diganti)
-  verificationStatus: JPVerificationStatus; // 'VERIFIED' | 'UNVERIFIED'
-  notes?: string;
+  title: string;
+  regulationNumber?: string;
+  year?: number;
+  sourceUrl?: string;
+  verifiedAt?: string;
+  description?: string;
 }
+
+/**
+ * Model Master Struktur Kurikulum Resmi Pemerintah (Permendikbudristek 12/2024 jo Permendikdasmen 13/2025 & Permendikbud 37/2018)
+ */
+export interface CurriculumStructureRule {
+  id: string;
+  curriculumType: 'KURIKULUM_MERDEKA' | 'K13';
+  level: string; // 'PAUD' | 'SD' | 'SMP' | 'SMA' | 'SMK'
+  phase?: string; // e.g. "Fase A", "Fase D", "Fase E"
+  grade: string; // e.g. "Kelas 1", "Kelas 7", "Kelas 10"
+  subject: string; // e.g. "Pendidikan Pancasila", "Bahasa Indonesia", "PJOK"
+
+  intrakurikulerWeeklyJP?: number; // JP Intrakurikuler Mapel per Minggu
+  intrakurikulerAnnualJP?: number; // JP Intrakurikuler Mapel per Tahun
+  kokurikulerAnnualJP?: number; // JP Kokurikuler / P5 per Tahun
+  totalAnnualJP?: number; // Total Tahunan (Intrakurikuler + Kokurikuler)
+
+  regulation: string; // e.g. "Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025"
+  regulationYear: number;
+  source: string; // e.g. "BSKAP Kemendikdasmen RI"
+  sourceUrl?: string;
+  effectiveFrom?: string; // YYYY-MM-DD
+  effectiveUntil?: string; // YYYY-MM-DD
+  verificationStatus: 'VERIFIED' | 'UNVERIFIED';
+  notes?: string;
+
+  /** @deprecated Compatibility alias. Use intrakurikulerWeeklyJP */
+  weeklyJP?: number;
+  /** @deprecated Compatibility alias. Use intrakurikulerAnnualJP */
+  annualJP?: number;
+  /** @deprecated Compatibility alias. Use kokurikulerAnnualJP */
+  kokurikulerJP?: number;
+  /** @deprecated Compatibility alias. Use curriculumType */
+  curriculum?: string;
+}
+
+/** @deprecated Compatibility alias for CurriculumStructureRule */
+export type MasterCurriculumStructure = CurriculumStructureRule;
 
 /**
  * Parameter Query Pencarian JP Mata Pelajaran
@@ -43,21 +70,28 @@ export interface SubjectJPQuery {
  * Hasil Lookup JP Mata Pelajaran
  */
 export interface SubjectJPResult {
-  weeklyJP: number;
-  annualJP?: number;
-  kokurikulerJP?: number;
+  weeklyJP: number | null;
+  intrakurikulerWeeklyJP?: number | null;
+  intrakurikulerAnnualJP?: number;
+  kokurikulerAnnualJP?: number;
   totalAnnualJP?: number;
   isOfficial: boolean;
   verificationStatus: JPVerificationStatus;
-  statusLabel: string; // "Terverifikasi Resmi" | "Belum diverifikasi"
-  regulation: string;
-  regulationYear: string | number;
+  statusLabel: string; // "Terverifikasi Resmi" | "Belum diverifikasi" | "Override Manual"
+  sourceType: JPSourceType;
+  regulation?: string;
+  regulationYear?: number;
   source: string;
   sourceUrl?: string;
   effectiveFrom?: string;
   curriculumType: CurriculumType;
-  matchedRule?: MasterCurriculumStructure;
+  matchedRule?: CurriculumStructureRule;
   explanation: string;
+
+  /** @deprecated Compatibility alias for intrakurikulerAnnualJP */
+  annualJP?: number;
+  /** @deprecated Compatibility alias for kokurikulerAnnualJP */
+  kokurikulerJP?: number;
 }
 
 /**
@@ -76,7 +110,7 @@ export interface TeachingAssignment {
 }
 
 /**
- * Tugas Tambahan Guru dan Ekuivalensi Beban Mengajarnya (Permendikbud 15/2018)
+ * Tugas Tambahan Guru dan Ekuivalensi Beban Mengajarnya (Permendikdasmen No. 11 Tahun 2025)
  */
 export interface AdditionalDuty {
   id?: string;
@@ -87,7 +121,7 @@ export interface AdditionalDuty {
 }
 
 /**
- * Hasil Validasi Beban Mengajar Guru
+ * Hasil Validasi Beban Mengajar Guru (Permendikdasmen No. 11 Tahun 2025)
  */
 export interface TeacherLoadValidationResult {
   teacherName?: string;
@@ -115,23 +149,103 @@ export interface TeacherLoadValidationResult {
       decreeNumber?: string;
     }>;
   };
-  regulatoryBasis: string; // e.g. "Permendikbud No. 15 Tahun 2018 jo Permendikbudristek No. 25 Tahun 2024"
+  regulatoryBasis: string; // "Permendikdasmen Nomor 11 Tahun 2025 tentang Pemenuhan Beban Kerja Guru"
 }
 
 /**
- * Hasil Perhitungan Alokasi Waktu Pembelajaran
+ * Hasil Perhitungan Hari Efektif Kalender
  */
-export interface AvailableJPCalculation {
-  jpPerWeek: number;
-  effectiveWeeks: number;
+export interface EffectiveDayResult {
+  totalCalendarDays: number;
+  scheduledSchoolDays: number;
+  effectiveLearningDays: number;
+  holidayDays: number;
+  schoolEventDays: number;
+  assessmentDays: number;
+  nonLearningDays: number;
+  breakdown: {
+    holidays: Array<{ date: string; notes?: string }>;
+    events: Array<{ date: string; notes?: string }>;
+    assessments: Array<{ date: string; notes?: string }>;
+    nonLearning: Array<{ date: string; notes?: string }>;
+  };
+}
+
+/**
+ * Hasil Perhitungan JP Tersedia
+ */
+export interface AvailableJPResult {
+  subjectWeeklyJP: number;
+  effectiveLearningDays: number;
+  schoolDaysPerWeek: number;
+  effectiveWeeksEquivalent: number;
+  effectiveWeeksRounded: number;
   availableJP: number;
-  formula: string; // "JP per minggu × minggu efektif = JP tersedia"
-  formulaCalculation: string; // "4 JP/minggu × 18 minggu = 72 JP"
-  details: {
+  formula: string;
+  formulaCalculation: string;
+  isCapacityExceeded?: boolean;
+  capacityWarning?: string;
+  officialAnnualJP?: number;
+  details?: {
     semester?: string;
     academicYear?: string;
     level?: string;
     grade?: string;
     subject?: string;
   };
+
+  /** @deprecated Compatibility alias */
+  jpPerWeek?: number;
+  /** @deprecated Compatibility alias */
+  effectiveWeeks?: number;
 }
+
+/** @deprecated Compatibility alias for AvailableJPResult */
+export type AvailableJPCalculation = AvailableJPResult;
+
+export type TimeAllocationSourceType =
+  | 'ATP_ITEM'
+  | 'TP'
+  | 'KD'
+  | 'K13_OBJECTIVE'
+  | 'ASSESSMENT'
+  | 'RESERVE';
+
+/**
+ * Model Shared Distribusi Alokasi Waktu Pembelajaran (Merdeka & K13)
+ */
+export interface LearningTimeAllocation {
+  id: string;
+  academicSettingId: string;
+  sourceType: TimeAllocationSourceType;
+  sourceId: string;
+  semester: '1' | '2' | string;
+  allocatedJP: number;
+  startWeek?: number;
+  endWeek?: number;
+  month?: number; // 1 to 6 (Bulan ke-n pada semester)
+  monthName?: string; // "Juli", "Agustus", dsb.
+  notes?: string;
+
+  /** @deprecated Compatibility alias */
+  tpId?: string;
+  /** @deprecated Compatibility alias */
+  atpItemId?: string;
+  /** @deprecated Compatibility alias */
+  weekNumber?: number;
+  /** @deprecated Compatibility alias */
+  jp?: number;
+}
+
+export type TimeAllocationStatus = 'UNDER_ALLOCATED' | 'BALANCED' | 'OVER_ALLOCATED';
+
+export interface TimeAllocationValidationResult {
+  availableJP: number;
+  totalAllocatedJP: number;
+  remainingJP: number; // Sisa JP Belum Dialokasikan (positif jika under, negatif jika over)
+  status: TimeAllocationStatus;
+  statusLabel: string;
+  statusDescription: string;
+  allocationsCount: number;
+}
+

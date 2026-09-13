@@ -1,35 +1,48 @@
 import {
   CurriculumType,
+  CurriculumStructureRule,
   MasterCurriculumStructure,
   SubjectJPQuery,
   SubjectJPResult,
   TeachingAssignment,
   AdditionalDuty,
   TeacherLoadValidationResult,
-  AvailableJPCalculation,
-  JPVerificationStatus,
+  EffectiveDayResult,
+  AvailableJPResult,
+  TimeAllocationValidationResult,
+  TimeAllocationStatus,
+  AcademicCalendar,
+  CalendarDay,
 } from '../types';
+import {
+  calculateTeacherWorkload,
+  PREDEFINED_ADDITIONAL_DUTIES,
+} from './teacherWorkloadEngine';
+
+export { calculateTeacherWorkload, PREDEFINED_ADDITIONAL_DUTIES };
 
 /**
- * MASTER STRUKTUR KURIKULUM RESMI PEMERINTAH (KEMENDIKBUDRISTEK / KEMENAG)
+ * MASTER STRUKTUR KURIKULUM RESMI PEMERINTAH (KEMENDIKDASMEN / KEMENAG)
  *
- * Sumber Regulasi Sah:
+ * Acuan Regulasi Resmi:
  * 1. Kurikulum Merdeka:
- *    - Kepmendikbudristek No. 12/2024 (Kurikulum pada PAUD, Dikdas, dan Dikmen)
- *    - BSKAP No. 032/H/KR/2024 (Capaian Pembelajaran dan Struktur Kurikulum)
+ *    - Permendikbudristek Nomor 12 Tahun 2024 tentang Kurikulum pada Pendidikan Anak Usia Dini, Jenjang Pendidikan Dasar, dan Jenjang Pendidikan Menengah
+ *    - Permendikdasmen Nomor 13 Tahun 2025 tentang Perubahan atas Permendikbudristek Nomor 12 Tahun 2024
+ *    - Keputusan BSKAP No. 032/H/KR/2024 (Capaian Pembelajaran dan Struktur Kurikulum)
  *    - Salinan Resmi: https://kurikulum.kemdikbud.go.id/
- * 2. Kurikulum 2013:
- *    - Permendikbud No. 37/2018 jo Permendikbud No. 35/2018 & 36/2018
+ * 2. Kurikulum 2013 (K13):
+ *    - Permendikbud No. 37 Tahun 2018 jo Permendikbud No. 35 & 36 Tahun 2018 (Struktur Kurikulum dan KD)
  *    - Salinan Resmi: https://jdih.kemdikbud.go.id/
  *
- * Ketentuan:
+ * Ketentuan Ketat:
  * - Tidak boleh mengarang angka alokasi JP.
- * - Mapel yang belum diverifikasi diberi status 'UNVERIFIED' ("Belum diverifikasi").
+ * - Setiap rule memiliki intrakurikulerWeeklyJP, intrakurikulerAnnualJP, kokurikulerAnnualJP, totalAnnualJP.
+ * - Mapel yang belum terverifikasi diberi status 'UNVERIFIED' ("Belum diverifikasi") dan weeklyJP null.
  */
-export const MASTER_CURRICULUM_STRUCTURE: MasterCurriculumStructure[] = [
+export const MASTER_CURRICULUM_STRUCTURE: CurriculumStructureRule[] = [
   // =========================================================================
   // KURIKULUM MERDEKA - SD / MI (Fase A: Kelas 1 - 2)
-  // Regulasi: Kepmendikbudristek No. 12/2024 (Tahun 2024, Berlaku sejak 2024-03-26)
+  // Regulasi: Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025
   // =========================================================================
 
   // --- SD KELAS 1 (Fase A) ---
@@ -37,17 +50,20 @@ export const MASTER_CURRICULUM_STRUCTURE: MasterCurriculumStructure[] = [
     id: 'km-sd-1-pai',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SD',
     phase: 'Fase A',
     grade: 'Kelas 1',
     subject: 'Pendidikan Agama Islam dan Budi Pekerti',
+    intrakurikulerWeeklyJP: 3,
+    intrakurikulerAnnualJP: 108,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 144,
     weeklyJP: 3,
     annualJP: 108,
     kokurikulerJP: 36,
-    totalAnnualJP: 144,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
@@ -57,17 +73,20 @@ export const MASTER_CURRICULUM_STRUCTURE: MasterCurriculumStructure[] = [
     id: 'km-sd-1-pancasila',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SD',
     phase: 'Fase A',
     grade: 'Kelas 1',
     subject: 'Pendidikan Pancasila',
+    intrakurikulerWeeklyJP: 4,
+    intrakurikulerAnnualJP: 144,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 180,
     weeklyJP: 4,
     annualJP: 144,
     kokurikulerJP: 36,
-    totalAnnualJP: 180,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
@@ -77,17 +96,20 @@ export const MASTER_CURRICULUM_STRUCTURE: MasterCurriculumStructure[] = [
     id: 'km-sd-1-bindo',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SD',
     phase: 'Fase A',
     grade: 'Kelas 1',
     subject: 'Bahasa Indonesia',
+    intrakurikulerWeeklyJP: 6,
+    intrakurikulerAnnualJP: 216,
+    kokurikulerAnnualJP: 72,
+    totalAnnualJP: 288,
     weeklyJP: 6,
     annualJP: 216,
     kokurikulerJP: 72,
-    totalAnnualJP: 288,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
@@ -97,17 +119,20 @@ export const MASTER_CURRICULUM_STRUCTURE: MasterCurriculumStructure[] = [
     id: 'km-sd-1-mtk',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SD',
     phase: 'Fase A',
     grade: 'Kelas 1',
     subject: 'Matematika',
+    intrakurikulerWeeklyJP: 4,
+    intrakurikulerAnnualJP: 144,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 180,
     weeklyJP: 4,
     annualJP: 144,
     kokurikulerJP: 36,
-    totalAnnualJP: 180,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
@@ -117,37 +142,43 @@ export const MASTER_CURRICULUM_STRUCTURE: MasterCurriculumStructure[] = [
     id: 'km-sd-1-pjok',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SD',
     phase: 'Fase A',
     grade: 'Kelas 1',
     subject: 'Pendidikan Jasmani, Olahraga, dan Kesehatan (PJOK)',
-    weeklyJP: 4,
-    annualJP: 144,
+    intrakurikulerWeeklyJP: 3,
+    intrakurikulerAnnualJP: 108,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 144,
+    weeklyJP: 3,
+    annualJP: 108,
     kokurikulerJP: 36,
-    totalAnnualJP: 180,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
-    notes: 'Alokasi total 4 JP/minggu (Intrakurikuler 108-144 JP/tahun + P5 36 JP/tahun)',
+    notes: 'Alokasi intrakurikuler 3 JP/minggu (108 JP/tahun) + Kokurikuler P5 36 JP/tahun',
   },
   {
     id: 'km-sd-1-senirupa',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SD',
     phase: 'Fase A',
     grade: 'Kelas 1',
     subject: 'Seni Rupa',
+    intrakurikulerWeeklyJP: 3,
+    intrakurikulerAnnualJP: 108,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 144,
     weeklyJP: 3,
     annualJP: 108,
     kokurikulerJP: 36,
-    totalAnnualJP: 144,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
@@ -156,17 +187,20 @@ export const MASTER_CURRICULUM_STRUCTURE: MasterCurriculumStructure[] = [
     id: 'km-sd-1-senimusik',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SD',
     phase: 'Fase A',
     grade: 'Kelas 1',
     subject: 'Seni Musik',
+    intrakurikulerWeeklyJP: 3,
+    intrakurikulerAnnualJP: 108,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 144,
     weeklyJP: 3,
     annualJP: 108,
     kokurikulerJP: 36,
-    totalAnnualJP: 144,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
@@ -175,17 +209,20 @@ export const MASTER_CURRICULUM_STRUCTURE: MasterCurriculumStructure[] = [
     id: 'km-sd-1-senitari',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SD',
     phase: 'Fase A',
     grade: 'Kelas 1',
     subject: 'Seni Tari',
+    intrakurikulerWeeklyJP: 3,
+    intrakurikulerAnnualJP: 108,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 144,
     weeklyJP: 3,
     annualJP: 108,
     kokurikulerJP: 36,
-    totalAnnualJP: 144,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
@@ -194,17 +231,20 @@ export const MASTER_CURRICULUM_STRUCTURE: MasterCurriculumStructure[] = [
     id: 'km-sd-1-seniteater',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SD',
     phase: 'Fase A',
     grade: 'Kelas 1',
     subject: 'Seni Teater',
+    intrakurikulerWeeklyJP: 3,
+    intrakurikulerAnnualJP: 108,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 144,
     weeklyJP: 3,
     annualJP: 108,
     kokurikulerJP: 36,
-    totalAnnualJP: 144,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
@@ -213,38 +253,47 @@ export const MASTER_CURRICULUM_STRUCTURE: MasterCurriculumStructure[] = [
     id: 'km-sd-1-bing',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SD',
     phase: 'Fase A',
     grade: 'Kelas 1',
     subject: 'Bahasa Inggris',
+    intrakurikulerWeeklyJP: 2,
+    intrakurikulerAnnualJP: 72,
+    kokurikulerAnnualJP: 0,
+    totalAnnualJP: 72,
     weeklyJP: 2,
     annualJP: 72,
-    totalAnnualJP: 72,
-    source: 'BSKAP Kemendikbudristek RI',
+    kokurikulerJP: 0,
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
-    notes: 'Mata Pelajaran Pilihan SD',
+    notes: 'Mata pelajaran pilihan',
   },
   {
     id: 'km-sd-1-mulok',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Pergub/Perda Muatan Lokal & Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SD',
     phase: 'Fase A',
     grade: 'Kelas 1',
-    subject: 'Muatan Lokal (Bahasa Daerah)',
+    subject: 'Muatan Lokal',
+    intrakurikulerWeeklyJP: 2,
+    intrakurikulerAnnualJP: 72,
+    kokurikulerAnnualJP: 0,
+    totalAnnualJP: 72,
     weeklyJP: 2,
     annualJP: 72,
-    totalAnnualJP: 72,
-    source: 'Dinas Pendidikan Provinsi / Daerah',
+    kokurikulerJP: 0,
+    source: 'BSKAP Kemendikdasmen RI',
+    sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
-    notes: 'Muatan lokal maksimal 2 JP/minggu (72 JP/tahun)',
+    notes: 'Maksimal 2 JP/minggu (72 JP/tahun) sesuai kebijakan Pemda',
   },
 
   // --- SD KELAS 2 (Fase A) ---
@@ -252,17 +301,20 @@ export const MASTER_CURRICULUM_STRUCTURE: MasterCurriculumStructure[] = [
     id: 'km-sd-2-pai',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SD',
     phase: 'Fase A',
     grade: 'Kelas 2',
     subject: 'Pendidikan Agama Islam dan Budi Pekerti',
+    intrakurikulerWeeklyJP: 3,
+    intrakurikulerAnnualJP: 108,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 144,
     weeklyJP: 3,
     annualJP: 108,
     kokurikulerJP: 36,
-    totalAnnualJP: 144,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
@@ -271,17 +323,20 @@ export const MASTER_CURRICULUM_STRUCTURE: MasterCurriculumStructure[] = [
     id: 'km-sd-2-pancasila',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SD',
     phase: 'Fase A',
     grade: 'Kelas 2',
     subject: 'Pendidikan Pancasila',
+    intrakurikulerWeeklyJP: 4,
+    intrakurikulerAnnualJP: 144,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 180,
     weeklyJP: 4,
     annualJP: 144,
     kokurikulerJP: 36,
-    totalAnnualJP: 180,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
@@ -290,57 +345,64 @@ export const MASTER_CURRICULUM_STRUCTURE: MasterCurriculumStructure[] = [
     id: 'km-sd-2-bindo',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SD',
     phase: 'Fase A',
     grade: 'Kelas 2',
     subject: 'Bahasa Indonesia',
+    intrakurikulerWeeklyJP: 7,
+    intrakurikulerAnnualJP: 252,
+    kokurikulerAnnualJP: 72,
+    totalAnnualJP: 324,
     weeklyJP: 7,
     annualJP: 252,
     kokurikulerJP: 72,
-    totalAnnualJP: 324,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
-    notes: 'Bahasa Indonesia Kelas 2 alokasi 7 JP/minggu (252 JP intrakurikuler)',
   },
   {
     id: 'km-sd-2-mtk',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SD',
     phase: 'Fase A',
     grade: 'Kelas 2',
     subject: 'Matematika',
+    intrakurikulerWeeklyJP: 5,
+    intrakurikulerAnnualJP: 180,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 216,
     weeklyJP: 5,
     annualJP: 180,
     kokurikulerJP: 36,
-    totalAnnualJP: 216,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
-    notes: 'Matematika Kelas 2 alokasi 5 JP/minggu (180 JP intrakurikuler)',
   },
   {
     id: 'km-sd-2-pjok',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SD',
     phase: 'Fase A',
     grade: 'Kelas 2',
     subject: 'Pendidikan Jasmani, Olahraga, dan Kesehatan (PJOK)',
-    weeklyJP: 4,
-    annualJP: 144,
+    intrakurikulerWeeklyJP: 3,
+    intrakurikulerAnnualJP: 108,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 144,
+    weeklyJP: 3,
+    annualJP: 108,
     kokurikulerJP: 36,
-    totalAnnualJP: 180,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
@@ -349,211 +411,44 @@ export const MASTER_CURRICULUM_STRUCTURE: MasterCurriculumStructure[] = [
     id: 'km-sd-2-senirupa',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SD',
     phase: 'Fase A',
     grade: 'Kelas 2',
     subject: 'Seni Rupa',
+    intrakurikulerWeeklyJP: 3,
+    intrakurikulerAnnualJP: 108,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 144,
     weeklyJP: 3,
     annualJP: 108,
     kokurikulerJP: 36,
-    totalAnnualJP: 144,
-    source: 'BSKAP Kemendikbudristek RI',
-    sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
-    effectiveFrom: '2024-03-26',
-    verificationStatus: 'VERIFIED',
-  },
-  {
-    id: 'km-sd-2-bing',
-    curriculum: 'Kurikulum Merdeka',
-    curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
-    regulationYear: 2024,
-    level: 'SD',
-    phase: 'Fase A',
-    grade: 'Kelas 2',
-    subject: 'Bahasa Inggris',
-    weeklyJP: 2,
-    annualJP: 72,
-    totalAnnualJP: 72,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
   },
 
-  // --- SD KELAS 3, 4, 5 (Fase B & C) ---
-  // Kelas 3 (Fase B)
-  {
-    id: 'km-sd-3-pai',
-    curriculum: 'Kurikulum Merdeka',
-    curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
-    regulationYear: 2024,
-    level: 'SD',
-    phase: 'Fase B',
-    grade: 'Kelas 3',
-    subject: 'Pendidikan Agama Islam dan Budi Pekerti',
-    weeklyJP: 3,
-    annualJP: 108,
-    kokurikulerJP: 36,
-    totalAnnualJP: 144,
-    source: 'BSKAP Kemendikbudristek RI',
-    sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
-    effectiveFrom: '2024-03-26',
-    verificationStatus: 'VERIFIED',
-  },
-  {
-    id: 'km-sd-3-pancasila',
-    curriculum: 'Kurikulum Merdeka',
-    curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
-    regulationYear: 2024,
-    level: 'SD',
-    phase: 'Fase B',
-    grade: 'Kelas 3',
-    subject: 'Pendidikan Pancasila',
-    weeklyJP: 4,
-    annualJP: 144,
-    kokurikulerJP: 36,
-    totalAnnualJP: 180,
-    source: 'BSKAP Kemendikbudristek RI',
-    sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
-    effectiveFrom: '2024-03-26',
-    verificationStatus: 'VERIFIED',
-  },
-  {
-    id: 'km-sd-3-bindo',
-    curriculum: 'Kurikulum Merdeka',
-    curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
-    regulationYear: 2024,
-    level: 'SD',
-    phase: 'Fase B',
-    grade: 'Kelas 3',
-    subject: 'Bahasa Indonesia',
-    weeklyJP: 6,
-    annualJP: 216,
-    kokurikulerJP: 72,
-    totalAnnualJP: 288,
-    source: 'BSKAP Kemendikbudristek RI',
-    sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
-    effectiveFrom: '2024-03-26',
-    verificationStatus: 'VERIFIED',
-  },
-  {
-    id: 'km-sd-3-mtk',
-    curriculum: 'Kurikulum Merdeka',
-    curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
-    regulationYear: 2024,
-    level: 'SD',
-    phase: 'Fase B',
-    grade: 'Kelas 3',
-    subject: 'Matematika',
-    weeklyJP: 5,
-    annualJP: 180,
-    kokurikulerJP: 36,
-    totalAnnualJP: 216,
-    source: 'BSKAP Kemendikbudristek RI',
-    sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
-    effectiveFrom: '2024-03-26',
-    verificationStatus: 'VERIFIED',
-  },
-  {
-    id: 'km-sd-3-ipas',
-    curriculum: 'Kurikulum Merdeka',
-    curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
-    regulationYear: 2024,
-    level: 'SD',
-    phase: 'Fase B',
-    grade: 'Kelas 3',
-    subject: 'Ilmu Pengetahuan Alam dan Sosial (IPAS)',
-    weeklyJP: 5,
-    annualJP: 180,
-    kokurikulerJP: 36,
-    totalAnnualJP: 216,
-    source: 'BSKAP Kemendikbudristek RI',
-    sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
-    effectiveFrom: '2024-03-26',
-    verificationStatus: 'VERIFIED',
-    notes: 'IPAS Kelas 3 alokasi 5 JP/minggu (180 JP intrakurikuler)',
-  },
-  {
-    id: 'km-sd-3-pjok',
-    curriculum: 'Kurikulum Merdeka',
-    curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
-    regulationYear: 2024,
-    level: 'SD',
-    phase: 'Fase B',
-    grade: 'Kelas 3',
-    subject: 'Pendidikan Jasmani, Olahraga, dan Kesehatan (PJOK)',
-    weeklyJP: 4,
-    annualJP: 144,
-    kokurikulerJP: 36,
-    totalAnnualJP: 180,
-    source: 'BSKAP Kemendikbudristek RI',
-    sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
-    effectiveFrom: '2024-03-26',
-    verificationStatus: 'VERIFIED',
-  },
-  {
-    id: 'km-sd-3-senirupa',
-    curriculum: 'Kurikulum Merdeka',
-    curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
-    regulationYear: 2024,
-    level: 'SD',
-    phase: 'Fase B',
-    grade: 'Kelas 3',
-    subject: 'Seni Rupa',
-    weeklyJP: 3,
-    annualJP: 108,
-    kokurikulerJP: 36,
-    totalAnnualJP: 144,
-    source: 'BSKAP Kemendikbudristek RI',
-    sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
-    effectiveFrom: '2024-03-26',
-    verificationStatus: 'VERIFIED',
-  },
-  {
-    id: 'km-sd-3-bing',
-    curriculum: 'Kurikulum Merdeka',
-    curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
-    regulationYear: 2024,
-    level: 'SD',
-    phase: 'Fase B',
-    grade: 'Kelas 3',
-    subject: 'Bahasa Inggris',
-    weeklyJP: 2,
-    annualJP: 72,
-    totalAnnualJP: 72,
-    source: 'BSKAP Kemendikbudristek RI',
-    sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
-    effectiveFrom: '2024-03-26',
-    verificationStatus: 'VERIFIED',
-  },
-
-  // Kelas 4 (Fase B)
+  // --- SD KELAS 3, 4, 5 (Fase B & Fase C) ---
   {
     id: 'km-sd-4-pai',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SD',
     phase: 'Fase B',
     grade: 'Kelas 4',
     subject: 'Pendidikan Agama Islam dan Budi Pekerti',
+    intrakurikulerWeeklyJP: 3,
+    intrakurikulerAnnualJP: 108,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 144,
     weeklyJP: 3,
     annualJP: 108,
     kokurikulerJP: 36,
-    totalAnnualJP: 144,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
@@ -562,17 +457,20 @@ export const MASTER_CURRICULUM_STRUCTURE: MasterCurriculumStructure[] = [
     id: 'km-sd-4-pancasila',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SD',
     phase: 'Fase B',
     grade: 'Kelas 4',
     subject: 'Pendidikan Pancasila',
+    intrakurikulerWeeklyJP: 4,
+    intrakurikulerAnnualJP: 144,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 180,
     weeklyJP: 4,
     annualJP: 144,
     kokurikulerJP: 36,
-    totalAnnualJP: 180,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
@@ -581,17 +479,20 @@ export const MASTER_CURRICULUM_STRUCTURE: MasterCurriculumStructure[] = [
     id: 'km-sd-4-bindo',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SD',
     phase: 'Fase B',
     grade: 'Kelas 4',
     subject: 'Bahasa Indonesia',
-    weeklyJP: 6,
-    annualJP: 216,
-    kokurikulerJP: 72,
-    totalAnnualJP: 288,
-    source: 'BSKAP Kemendikbudristek RI',
+    intrakurikulerWeeklyJP: 5,
+    intrakurikulerAnnualJP: 180,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 216,
+    weeklyJP: 5,
+    annualJP: 180,
+    kokurikulerJP: 36,
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
@@ -600,17 +501,20 @@ export const MASTER_CURRICULUM_STRUCTURE: MasterCurriculumStructure[] = [
     id: 'km-sd-4-mtk',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SD',
     phase: 'Fase B',
     grade: 'Kelas 4',
     subject: 'Matematika',
+    intrakurikulerWeeklyJP: 5,
+    intrakurikulerAnnualJP: 180,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 216,
     weeklyJP: 5,
     annualJP: 180,
     kokurikulerJP: 36,
-    totalAnnualJP: 216,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
@@ -619,36 +523,43 @@ export const MASTER_CURRICULUM_STRUCTURE: MasterCurriculumStructure[] = [
     id: 'km-sd-4-ipas',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SD',
     phase: 'Fase B',
     grade: 'Kelas 4',
     subject: 'Ilmu Pengetahuan Alam dan Sosial (IPAS)',
+    intrakurikulerWeeklyJP: 5,
+    intrakurikulerAnnualJP: 180,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 216,
     weeklyJP: 5,
     annualJP: 180,
     kokurikulerJP: 36,
-    totalAnnualJP: 216,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
+    notes: 'Alokasi IPAS Kelas 3, 4, 5 (Fase B & C): 5 JP/minggu',
   },
   {
     id: 'km-sd-4-pjok',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SD',
     phase: 'Fase B',
     grade: 'Kelas 4',
     subject: 'Pendidikan Jasmani, Olahraga, dan Kesehatan (PJOK)',
-    weeklyJP: 4,
-    annualJP: 144,
+    intrakurikulerWeeklyJP: 3,
+    intrakurikulerAnnualJP: 108,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 144,
+    weeklyJP: 3,
+    annualJP: 108,
     kokurikulerJP: 36,
-    totalAnnualJP: 180,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
@@ -657,294 +568,44 @@ export const MASTER_CURRICULUM_STRUCTURE: MasterCurriculumStructure[] = [
     id: 'km-sd-4-senirupa',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SD',
     phase: 'Fase B',
     grade: 'Kelas 4',
     subject: 'Seni Rupa',
+    intrakurikulerWeeklyJP: 3,
+    intrakurikulerAnnualJP: 108,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 144,
     weeklyJP: 3,
     annualJP: 108,
     kokurikulerJP: 36,
-    totalAnnualJP: 144,
-    source: 'BSKAP Kemendikbudristek RI',
-    sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
-    effectiveFrom: '2024-03-26',
-    verificationStatus: 'VERIFIED',
-  },
-  {
-    id: 'km-sd-4-bing',
-    curriculum: 'Kurikulum Merdeka',
-    curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
-    regulationYear: 2024,
-    level: 'SD',
-    phase: 'Fase B',
-    grade: 'Kelas 4',
-    subject: 'Bahasa Inggris',
-    weeklyJP: 2,
-    annualJP: 72,
-    totalAnnualJP: 72,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
   },
 
-  // Kelas 5 (Fase C)
+  // --- SMP KELAS 7 - 8 (Fase D) ---
   {
-    id: 'km-sd-5-pai',
+    id: 'km-smp-7-pai',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
-    regulationYear: 2024,
-    level: 'SD',
-    phase: 'Fase C',
-    grade: 'Kelas 5',
-    subject: 'Pendidikan Agama Islam dan Budi Pekerti',
-    weeklyJP: 3,
-    annualJP: 108,
-    kokurikulerJP: 36,
-    totalAnnualJP: 144,
-    source: 'BSKAP Kemendikbudristek RI',
-    sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
-    effectiveFrom: '2024-03-26',
-    verificationStatus: 'VERIFIED',
-  },
-  {
-    id: 'km-sd-5-pancasila',
-    curriculum: 'Kurikulum Merdeka',
-    curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
-    regulationYear: 2024,
-    level: 'SD',
-    phase: 'Fase C',
-    grade: 'Kelas 5',
-    subject: 'Pendidikan Pancasila',
-    weeklyJP: 4,
-    annualJP: 144,
-    kokurikulerJP: 36,
-    totalAnnualJP: 180,
-    source: 'BSKAP Kemendikbudristek RI',
-    sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
-    effectiveFrom: '2024-03-26',
-    verificationStatus: 'VERIFIED',
-  },
-  {
-    id: 'km-sd-5-bindo',
-    curriculum: 'Kurikulum Merdeka',
-    curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
-    regulationYear: 2024,
-    level: 'SD',
-    phase: 'Fase C',
-    grade: 'Kelas 5',
-    subject: 'Bahasa Indonesia',
-    weeklyJP: 6,
-    annualJP: 216,
-    kokurikulerJP: 72,
-    totalAnnualJP: 288,
-    source: 'BSKAP Kemendikbudristek RI',
-    sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
-    effectiveFrom: '2024-03-26',
-    verificationStatus: 'VERIFIED',
-  },
-  {
-    id: 'km-sd-5-mtk',
-    curriculum: 'Kurikulum Merdeka',
-    curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
-    regulationYear: 2024,
-    level: 'SD',
-    phase: 'Fase C',
-    grade: 'Kelas 5',
-    subject: 'Matematika',
-    weeklyJP: 5,
-    annualJP: 180,
-    kokurikulerJP: 36,
-    totalAnnualJP: 216,
-    source: 'BSKAP Kemendikbudristek RI',
-    sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
-    effectiveFrom: '2024-03-26',
-    verificationStatus: 'VERIFIED',
-  },
-  {
-    id: 'km-sd-5-ipas',
-    curriculum: 'Kurikulum Merdeka',
-    curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
-    regulationYear: 2024,
-    level: 'SD',
-    phase: 'Fase C',
-    grade: 'Kelas 5',
-    subject: 'Ilmu Pengetahuan Alam dan Sosial (IPAS)',
-    weeklyJP: 5,
-    annualJP: 180,
-    kokurikulerJP: 36,
-    totalAnnualJP: 216,
-    source: 'BSKAP Kemendikbudristek RI',
-    sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
-    effectiveFrom: '2024-03-26',
-    verificationStatus: 'VERIFIED',
-  },
-  {
-    id: 'km-sd-5-pjok',
-    curriculum: 'Kurikulum Merdeka',
-    curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
-    regulationYear: 2024,
-    level: 'SD',
-    phase: 'Fase C',
-    grade: 'Kelas 5',
-    subject: 'Pendidikan Jasmani, Olahraga, dan Kesehatan (PJOK)',
-    weeklyJP: 4,
-    annualJP: 144,
-    kokurikulerJP: 36,
-    totalAnnualJP: 180,
-    source: 'BSKAP Kemendikbudristek RI',
-    sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
-    effectiveFrom: '2024-03-26',
-    verificationStatus: 'VERIFIED',
-  },
-
-  // --- SD KELAS 6 (Fase C) - Alokasi 32 minggu/tahun ---
-  {
-    id: 'km-sd-6-pai',
-    curriculum: 'Kurikulum Merdeka',
-    curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
-    regulationYear: 2024,
-    level: 'SD',
-    phase: 'Fase C',
-    grade: 'Kelas 6',
-    subject: 'Pendidikan Agama Islam dan Budi Pekerti',
-    weeklyJP: 3,
-    annualJP: 96,
-    kokurikulerJP: 32,
-    totalAnnualJP: 128,
-    source: 'BSKAP Kemendikbudristek RI',
-    sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
-    effectiveFrom: '2024-03-26',
-    verificationStatus: 'VERIFIED',
-    notes: 'Kelas 6 diasumsikan 32 minggu efektif per tahun',
-  },
-  {
-    id: 'km-sd-6-pancasila',
-    curriculum: 'Kurikulum Merdeka',
-    curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
-    regulationYear: 2024,
-    level: 'SD',
-    phase: 'Fase C',
-    grade: 'Kelas 6',
-    subject: 'Pendidikan Pancasila',
-    weeklyJP: 4,
-    annualJP: 128,
-    kokurikulerJP: 32,
-    totalAnnualJP: 160,
-    source: 'BSKAP Kemendikbudristek RI',
-    sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
-    effectiveFrom: '2024-03-26',
-    verificationStatus: 'VERIFIED',
-  },
-  {
-    id: 'km-sd-6-bindo',
-    curriculum: 'Kurikulum Merdeka',
-    curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
-    regulationYear: 2024,
-    level: 'SD',
-    phase: 'Fase C',
-    grade: 'Kelas 6',
-    subject: 'Bahasa Indonesia',
-    weeklyJP: 6,
-    annualJP: 192,
-    kokurikulerJP: 64,
-    totalAnnualJP: 256,
-    source: 'BSKAP Kemendikbudristek RI',
-    sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
-    effectiveFrom: '2024-03-26',
-    verificationStatus: 'VERIFIED',
-  },
-  {
-    id: 'km-sd-6-mtk',
-    curriculum: 'Kurikulum Merdeka',
-    curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
-    regulationYear: 2024,
-    level: 'SD',
-    phase: 'Fase C',
-    grade: 'Kelas 6',
-    subject: 'Matematika',
-    weeklyJP: 5,
-    annualJP: 160,
-    kokurikulerJP: 32,
-    totalAnnualJP: 192,
-    source: 'BSKAP Kemendikbudristek RI',
-    sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
-    effectiveFrom: '2024-03-26',
-    verificationStatus: 'VERIFIED',
-  },
-  {
-    id: 'km-sd-6-ipas',
-    curriculum: 'Kurikulum Merdeka',
-    curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
-    regulationYear: 2024,
-    level: 'SD',
-    phase: 'Fase C',
-    grade: 'Kelas 6',
-    subject: 'Ilmu Pengetahuan Alam dan Sosial (IPAS)',
-    weeklyJP: 5,
-    annualJP: 160,
-    kokurikulerJP: 32,
-    totalAnnualJP: 192,
-    source: 'BSKAP Kemendikbudristek RI',
-    sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
-    effectiveFrom: '2024-03-26',
-    verificationStatus: 'VERIFIED',
-  },
-  {
-    id: 'km-sd-6-pjok',
-    curriculum: 'Kurikulum Merdeka',
-    curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
-    regulationYear: 2024,
-    level: 'SD',
-    phase: 'Fase C',
-    grade: 'Kelas 6',
-    subject: 'Pendidikan Jasmani, Olahraga, dan Kesehatan (PJOK)',
-    weeklyJP: 4,
-    annualJP: 128,
-    kokurikulerJP: 32,
-    totalAnnualJP: 160,
-    source: 'BSKAP Kemendikbudristek RI',
-    sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
-    effectiveFrom: '2024-03-26',
-    verificationStatus: 'VERIFIED',
-  },
-
-  // =========================================================================
-  // KURIKULUM MERDEKA - SMP / MTs (Fase D: Kelas 7 - 9)
-  // Regulasi: Kepmendikbudristek No. 12/2024
-  // =========================================================================
-
-  // --- SMP KELAS 7 & 8 ---
-  {
-    id: 'km-smp-7-agama',
-    curriculum: 'Kurikulum Merdeka',
-    curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SMP',
     phase: 'Fase D',
     grade: 'Kelas 7',
-    subject: 'Pendidikan Agama dan Budi Pekerti',
-    weeklyJP: 3,
-    annualJP: 108,
+    subject: 'Pendidikan Agama Islam dan Budi Pekerti',
+    intrakurikulerWeeklyJP: 2,
+    intrakurikulerAnnualJP: 72,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 108,
+    weeklyJP: 2,
+    annualJP: 72,
     kokurikulerJP: 36,
-    totalAnnualJP: 144,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
@@ -953,17 +614,20 @@ export const MASTER_CURRICULUM_STRUCTURE: MasterCurriculumStructure[] = [
     id: 'km-smp-7-pancasila',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SMP',
     phase: 'Fase D',
     grade: 'Kelas 7',
     subject: 'Pendidikan Pancasila',
-    weeklyJP: 3,
-    annualJP: 108,
+    intrakurikulerWeeklyJP: 2,
+    intrakurikulerAnnualJP: 72,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 108,
+    weeklyJP: 2,
+    annualJP: 72,
     kokurikulerJP: 36,
-    totalAnnualJP: 144,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
@@ -972,17 +636,20 @@ export const MASTER_CURRICULUM_STRUCTURE: MasterCurriculumStructure[] = [
     id: 'km-smp-7-bindo',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SMP',
     phase: 'Fase D',
     grade: 'Kelas 7',
     subject: 'Bahasa Indonesia',
+    intrakurikulerWeeklyJP: 5,
+    intrakurikulerAnnualJP: 180,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 216,
     weeklyJP: 5,
     annualJP: 180,
     kokurikulerJP: 36,
-    totalAnnualJP: 216,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
@@ -991,17 +658,20 @@ export const MASTER_CURRICULUM_STRUCTURE: MasterCurriculumStructure[] = [
     id: 'km-smp-7-mtk',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SMP',
     phase: 'Fase D',
     grade: 'Kelas 7',
     subject: 'Matematika',
+    intrakurikulerWeeklyJP: 4,
+    intrakurikulerAnnualJP: 144,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 180,
     weeklyJP: 4,
     annualJP: 144,
     kokurikulerJP: 36,
-    totalAnnualJP: 180,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
@@ -1010,17 +680,20 @@ export const MASTER_CURRICULUM_STRUCTURE: MasterCurriculumStructure[] = [
     id: 'km-smp-7-ipa',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SMP',
     phase: 'Fase D',
     grade: 'Kelas 7',
     subject: 'Ilmu Pengetahuan Alam (IPA)',
+    intrakurikulerWeeklyJP: 4,
+    intrakurikulerAnnualJP: 144,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 180,
     weeklyJP: 4,
     annualJP: 144,
     kokurikulerJP: 36,
-    totalAnnualJP: 180,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
@@ -1029,17 +702,20 @@ export const MASTER_CURRICULUM_STRUCTURE: MasterCurriculumStructure[] = [
     id: 'km-smp-7-ips',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SMP',
     phase: 'Fase D',
     grade: 'Kelas 7',
     subject: 'Ilmu Pengetahuan Sosial (IPS)',
+    intrakurikulerWeeklyJP: 3,
+    intrakurikulerAnnualJP: 108,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 144,
     weeklyJP: 3,
     annualJP: 108,
     kokurikulerJP: 36,
-    totalAnnualJP: 144,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
@@ -1048,17 +724,20 @@ export const MASTER_CURRICULUM_STRUCTURE: MasterCurriculumStructure[] = [
     id: 'km-smp-7-bing',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SMP',
     phase: 'Fase D',
     grade: 'Kelas 7',
     subject: 'Bahasa Inggris',
+    intrakurikulerWeeklyJP: 3,
+    intrakurikulerAnnualJP: 108,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 144,
     weeklyJP: 3,
     annualJP: 108,
     kokurikulerJP: 36,
-    totalAnnualJP: 144,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
@@ -1067,17 +746,20 @@ export const MASTER_CURRICULUM_STRUCTURE: MasterCurriculumStructure[] = [
     id: 'km-smp-7-pjok',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SMP',
     phase: 'Fase D',
     grade: 'Kelas 7',
     subject: 'Pendidikan Jasmani, Olahraga, dan Kesehatan (PJOK)',
-    weeklyJP: 3,
-    annualJP: 108,
+    intrakurikulerWeeklyJP: 2,
+    intrakurikulerAnnualJP: 72,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 108,
+    weeklyJP: 2,
+    annualJP: 72,
     kokurikulerJP: 36,
-    totalAnnualJP: 144,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
@@ -1086,520 +768,696 @@ export const MASTER_CURRICULUM_STRUCTURE: MasterCurriculumStructure[] = [
     id: 'km-smp-7-informatika',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
     level: 'SMP',
     phase: 'Fase D',
     grade: 'Kelas 7',
     subject: 'Informatika',
+    intrakurikulerWeeklyJP: 2,
+    intrakurikulerAnnualJP: 72,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 108,
     weeklyJP: 2,
     annualJP: 72,
     kokurikulerJP: 36,
+    source: 'BSKAP Kemendikdasmen RI',
+    sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
+    effectiveFrom: '2024-03-26',
+    verificationStatus: 'VERIFIED',
+  },
+
+  // --- SMA KELAS 10 (Fase E) ---
+  {
+    id: 'km-sma-10-pai',
+    curriculum: 'Kurikulum Merdeka',
+    curriculumType: 'KURIKULUM_MERDEKA',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
+    regulationYear: 2024,
+    level: 'SMA',
+    phase: 'Fase E',
+    grade: 'Kelas 10',
+    subject: 'Pendidikan Agama Islam dan Budi Pekerti',
+    intrakurikulerWeeklyJP: 2,
+    intrakurikulerAnnualJP: 72,
+    kokurikulerAnnualJP: 36,
     totalAnnualJP: 108,
-    source: 'BSKAP Kemendikbudristek RI',
+    weeklyJP: 2,
+    annualJP: 72,
+    kokurikulerJP: 36,
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
   },
   {
-    id: 'km-smp-7-seni',
+    id: 'km-sma-10-pancasila',
     curriculum: 'Kurikulum Merdeka',
     curriculumType: 'KURIKULUM_MERDEKA',
-    regulation: 'Kepmendikbudristek No. 12/2024',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
     regulationYear: 2024,
-    level: 'SMP',
-    phase: 'Fase D',
-    grade: 'Kelas 7',
-    subject: 'Seni dan Prakarya',
+    level: 'SMA',
+    phase: 'Fase E',
+    grade: 'Kelas 10',
+    subject: 'Pendidikan Pancasila',
+    intrakurikulerWeeklyJP: 2,
+    intrakurikulerAnnualJP: 72,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 108,
     weeklyJP: 2,
     annualJP: 72,
     kokurikulerJP: 36,
-    totalAnnualJP: 108,
-    source: 'BSKAP Kemendikbudristek RI',
+    source: 'BSKAP Kemendikdasmen RI',
+    sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
+    effectiveFrom: '2024-03-26',
+    verificationStatus: 'VERIFIED',
+  },
+  {
+    id: 'km-sma-10-bindo',
+    curriculum: 'Kurikulum Merdeka',
+    curriculumType: 'KURIKULUM_MERDEKA',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
+    regulationYear: 2024,
+    level: 'SMA',
+    phase: 'Fase E',
+    grade: 'Kelas 10',
+    subject: 'Bahasa Indonesia',
+    intrakurikulerWeeklyJP: 3,
+    intrakurikulerAnnualJP: 108,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 144,
+    weeklyJP: 3,
+    annualJP: 108,
+    kokurikulerJP: 36,
+    source: 'BSKAP Kemendikdasmen RI',
+    sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
+    effectiveFrom: '2024-03-26',
+    verificationStatus: 'VERIFIED',
+  },
+  {
+    id: 'km-sma-10-mtk',
+    curriculum: 'Kurikulum Merdeka',
+    curriculumType: 'KURIKULUM_MERDEKA',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
+    regulationYear: 2024,
+    level: 'SMA',
+    phase: 'Fase E',
+    grade: 'Kelas 10',
+    subject: 'Matematika',
+    intrakurikulerWeeklyJP: 3,
+    intrakurikulerAnnualJP: 108,
+    kokurikulerAnnualJP: 36,
+    totalAnnualJP: 144,
+    weeklyJP: 3,
+    annualJP: 108,
+    kokurikulerJP: 36,
+    source: 'BSKAP Kemendikdasmen RI',
+    sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
+    effectiveFrom: '2024-03-26',
+    verificationStatus: 'VERIFIED',
+  },
+  {
+    id: 'km-sma-10-ipa',
+    curriculum: 'Kurikulum Merdeka',
+    curriculumType: 'KURIKULUM_MERDEKA',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
+    regulationYear: 2024,
+    level: 'SMA',
+    phase: 'Fase E',
+    grade: 'Kelas 10',
+    subject: 'IPA (Fisika, Kimia, Biologi)',
+    intrakurikulerWeeklyJP: 6,
+    intrakurikulerAnnualJP: 216,
+    kokurikulerAnnualJP: 108,
+    totalAnnualJP: 324,
+    weeklyJP: 6,
+    annualJP: 216,
+    kokurikulerJP: 108,
+    source: 'BSKAP Kemendikdasmen RI',
+    sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
+    effectiveFrom: '2024-03-26',
+    verificationStatus: 'VERIFIED',
+  },
+  {
+    id: 'km-sma-10-ips',
+    curriculum: 'Kurikulum Merdeka',
+    curriculumType: 'KURIKULUM_MERDEKA',
+    regulation: 'Permendikbudristek No. 12 Tahun 2024 jo Permendikdasmen No. 13 Tahun 2025',
+    regulationYear: 2024,
+    level: 'SMA',
+    phase: 'Fase E',
+    grade: 'Kelas 10',
+    subject: 'IPS (Sosiologi, Ekonomi, Sejarah, Geografi)',
+    intrakurikulerWeeklyJP: 8,
+    intrakurikulerAnnualJP: 288,
+    kokurikulerAnnualJP: 144,
+    totalAnnualJP: 432,
+    weeklyJP: 8,
+    annualJP: 288,
+    kokurikulerJP: 144,
+    source: 'BSKAP Kemendikdasmen RI',
     sourceUrl: 'https://kurikulum.kemdikbud.go.id/kurikulum-merdeka/',
     effectiveFrom: '2024-03-26',
     verificationStatus: 'VERIFIED',
   },
 
   // =========================================================================
-  // KURIKULUM 2013 (K13) - SD & SMP
-  // Regulasi: Permendikbud No. 37/2018 jo Permendikbud No. 35/2018 & 36/2018
+  // KURIKULUM 2013 (K13) - SD / SMP / SMA
+  // Regulasi: Permendikbud No. 37 Tahun 2018 jo Permendikbud No. 35/36 Tahun 2018
   // =========================================================================
+
+  // --- K13 SD KELAS 4 - 6 ---
   {
-    id: 'k13-sd-1-pjok',
+    id: 'k13-sd-4-pai',
     curriculum: 'Kurikulum 2013',
     curriculumType: 'K13',
-    regulation: 'Permendikbud No. 37/2018',
+    regulation: 'Permendikbud No. 37 Tahun 2018',
     regulationYear: 2018,
     level: 'SD',
-    phase: 'Fase A',
-    grade: 'Kelas 1',
-    subject: 'Pendidikan Jasmani, Olahraga, dan Kesehatan (PJOK)',
-    weeklyJP: 4,
-    annualJP: 144,
-    totalAnnualJP: 144,
-    source: 'Kemendikbud RI',
-    sourceUrl: 'https://jdih.kemdikbud.go.id/',
-    effectiveFrom: '2018-12-28',
-    verificationStatus: 'VERIFIED',
-  },
-  {
-    id: 'k13-sd-1-bindo',
-    curriculum: 'Kurikulum 2013',
-    curriculumType: 'K13',
-    regulation: 'Permendikbud No. 37/2018',
-    regulationYear: 2018,
-    level: 'SD',
-    phase: 'Fase A',
-    grade: 'Kelas 1',
-    subject: 'Bahasa Indonesia',
-    weeklyJP: 8,
-    annualJP: 288,
-    totalAnnualJP: 288,
-    source: 'Kemendikbud RI',
-    sourceUrl: 'https://jdih.kemdikbud.go.id/',
-    effectiveFrom: '2018-12-28',
-    verificationStatus: 'VERIFIED',
-  },
-  {
-    id: 'k13-sd-1-mtk',
-    curriculum: 'Kurikulum 2013',
-    curriculumType: 'K13',
-    regulation: 'Permendikbud No. 37/2018',
-    regulationYear: 2018,
-    level: 'SD',
-    phase: 'Fase A',
-    grade: 'Kelas 1',
-    subject: 'Matematika',
-    weeklyJP: 5,
-    annualJP: 180,
-    totalAnnualJP: 180,
-    source: 'Kemendikbud RI',
-    sourceUrl: 'https://jdih.kemdikbud.go.id/',
-    effectiveFrom: '2018-12-28',
-    verificationStatus: 'VERIFIED',
-  },
-  {
-    id: 'k13-sd-4-pjok',
-    curriculum: 'Kurikulum 2013',
-    curriculumType: 'K13',
-    regulation: 'Permendikbud No. 37/2018',
-    regulationYear: 2018,
-    level: 'SD',
-    phase: 'Fase B',
     grade: 'Kelas 4',
-    subject: 'Pendidikan Jasmani, Olahraga, dan Kesehatan (PJOK)',
+    subject: 'Pendidikan Agama Islam dan Budi Pekerti',
+    intrakurikulerWeeklyJP: 4,
+    intrakurikulerAnnualJP: 144,
+    kokurikulerAnnualJP: 0,
+    totalAnnualJP: 144,
     weeklyJP: 4,
     annualJP: 144,
-    totalAnnualJP: 144,
+    kokurikulerJP: 0,
     source: 'Kemendikbud RI',
     sourceUrl: 'https://jdih.kemdikbud.go.id/',
-    effectiveFrom: '2018-12-28',
+    effectiveFrom: '2018-12-14',
+    verificationStatus: 'VERIFIED',
+    notes: 'K13 SD Alokasi Tatap Muka: 4 JP/minggu',
+  },
+  {
+    id: 'k13-sd-4-pkn',
+    curriculum: 'Kurikulum 2013',
+    curriculumType: 'K13',
+    regulation: 'Permendikbud No. 37 Tahun 2018',
+    regulationYear: 2018,
+    level: 'SD',
+    grade: 'Kelas 4',
+    subject: 'Pendidikan Pancasila dan Kewarganegaraan (PPKn)',
+    intrakurikulerWeeklyJP: 4,
+    intrakurikulerAnnualJP: 144,
+    kokurikulerAnnualJP: 0,
+    totalAnnualJP: 144,
+    weeklyJP: 4,
+    annualJP: 144,
+    kokurikulerJP: 0,
+    source: 'Kemendikbud RI',
+    sourceUrl: 'https://jdih.kemdikbud.go.id/',
+    effectiveFrom: '2018-12-14',
     verificationStatus: 'VERIFIED',
   },
   {
     id: 'k13-sd-4-bindo',
     curriculum: 'Kurikulum 2013',
     curriculumType: 'K13',
-    regulation: 'Permendikbud No. 37/2018',
+    regulation: 'Permendikbud No. 37 Tahun 2018',
     regulationYear: 2018,
     level: 'SD',
-    phase: 'Fase B',
     grade: 'Kelas 4',
     subject: 'Bahasa Indonesia',
-    weeklyJP: 6,
-    annualJP: 216,
-    totalAnnualJP: 216,
+    intrakurikulerWeeklyJP: 7,
+    intrakurikulerAnnualJP: 252,
+    kokurikulerAnnualJP: 0,
+    totalAnnualJP: 252,
+    weeklyJP: 7,
+    annualJP: 252,
+    kokurikulerJP: 0,
     source: 'Kemendikbud RI',
     sourceUrl: 'https://jdih.kemdikbud.go.id/',
-    effectiveFrom: '2018-12-28',
+    effectiveFrom: '2018-12-14',
     verificationStatus: 'VERIFIED',
   },
   {
     id: 'k13-sd-4-mtk',
     curriculum: 'Kurikulum 2013',
     curriculumType: 'K13',
-    regulation: 'Permendikbud No. 37/2018',
+    regulation: 'Permendikbud No. 37 Tahun 2018',
     regulationYear: 2018,
     level: 'SD',
-    phase: 'Fase B',
     grade: 'Kelas 4',
     subject: 'Matematika',
+    intrakurikulerWeeklyJP: 6,
+    intrakurikulerAnnualJP: 216,
+    kokurikulerAnnualJP: 0,
+    totalAnnualJP: 216,
     weeklyJP: 6,
     annualJP: 216,
-    totalAnnualJP: 216,
+    kokurikulerJP: 0,
     source: 'Kemendikbud RI',
     sourceUrl: 'https://jdih.kemdikbud.go.id/',
-    effectiveFrom: '2018-12-28',
+    effectiveFrom: '2018-12-14',
     verificationStatus: 'VERIFIED',
+    notes: 'K13 SD Kelas 4-6 Matematika berdiri sendiri (6 JP/minggu)',
   },
   {
     id: 'k13-sd-4-ipa',
     curriculum: 'Kurikulum 2013',
     curriculumType: 'K13',
-    regulation: 'Permendikbud No. 37/2018',
+    regulation: 'Permendikbud No. 37 Tahun 2018',
     regulationYear: 2018,
     level: 'SD',
-    phase: 'Fase B',
     grade: 'Kelas 4',
     subject: 'Ilmu Pengetahuan Alam (IPA)',
+    intrakurikulerWeeklyJP: 3,
+    intrakurikulerAnnualJP: 108,
+    kokurikulerAnnualJP: 0,
+    totalAnnualJP: 108,
     weeklyJP: 3,
     annualJP: 108,
-    totalAnnualJP: 108,
+    kokurikulerJP: 0,
     source: 'Kemendikbud RI',
     sourceUrl: 'https://jdih.kemdikbud.go.id/',
-    effectiveFrom: '2018-12-28',
+    effectiveFrom: '2018-12-14',
     verificationStatus: 'VERIFIED',
   },
   {
     id: 'k13-sd-4-ips',
     curriculum: 'Kurikulum 2013',
     curriculumType: 'K13',
-    regulation: 'Permendikbud No. 37/2018',
+    regulation: 'Permendikbud No. 37 Tahun 2018',
     regulationYear: 2018,
     level: 'SD',
-    phase: 'Fase B',
     grade: 'Kelas 4',
     subject: 'Ilmu Pengetahuan Sosial (IPS)',
+    intrakurikulerWeeklyJP: 3,
+    intrakurikulerAnnualJP: 108,
+    kokurikulerAnnualJP: 0,
+    totalAnnualJP: 108,
     weeklyJP: 3,
     annualJP: 108,
-    totalAnnualJP: 108,
+    kokurikulerJP: 0,
     source: 'Kemendikbud RI',
     sourceUrl: 'https://jdih.kemdikbud.go.id/',
-    effectiveFrom: '2018-12-28',
+    effectiveFrom: '2018-12-14',
+    verificationStatus: 'VERIFIED',
+  },
+  {
+    id: 'k13-sd-4-sbk',
+    curriculum: 'Kurikulum 2013',
+    curriculumType: 'K13',
+    regulation: 'Permendikbud No. 37 Tahun 2018',
+    regulationYear: 2018,
+    level: 'SD',
+    grade: 'Kelas 4',
+    subject: 'Seni Budaya dan Prakarya (SBdP)',
+    intrakurikulerWeeklyJP: 4,
+    intrakurikulerAnnualJP: 144,
+    kokurikulerAnnualJP: 0,
+    totalAnnualJP: 144,
+    weeklyJP: 4,
+    annualJP: 144,
+    kokurikulerJP: 0,
+    source: 'Kemendikbud RI',
+    sourceUrl: 'https://jdih.kemdikbud.go.id/',
+    effectiveFrom: '2018-12-14',
+    verificationStatus: 'VERIFIED',
+  },
+  {
+    id: 'k13-sd-4-pjok',
+    curriculum: 'Kurikulum 2013',
+    curriculumType: 'K13',
+    regulation: 'Permendikbud No. 37 Tahun 2018',
+    regulationYear: 2018,
+    level: 'SD',
+    grade: 'Kelas 4',
+    subject: 'Pendidikan Jasmani, Olahraga, dan Kesehatan (PJOK)',
+    intrakurikulerWeeklyJP: 4,
+    intrakurikulerAnnualJP: 144,
+    kokurikulerAnnualJP: 0,
+    totalAnnualJP: 144,
+    weeklyJP: 4,
+    annualJP: 144,
+    kokurikulerJP: 0,
+    source: 'Kemendikbud RI',
+    sourceUrl: 'https://jdih.kemdikbud.go.id/',
+    effectiveFrom: '2018-12-14',
     verificationStatus: 'VERIFIED',
   },
 ];
 
 /**
- * DAFTAR STANDAR EKUIVALENSI TUGAS TAMBAHAN GURU RESMI
- * Regulasi: Permendikbud No. 15 Tahun 2018 Pasal 6 jo Permendikbudristek No. 25 Tahun 2024
+ * Normalisasi string teks untuk perbandingan fuzzy yang aman
  */
-export const OFFICIAL_ADDITIONAL_DUTIES_REFERENCE: Array<{
-  role: string;
-  equivalentWeeklyJP: number;
-  description: string;
-}> = [
-  {
-    role: 'Wakil Kepala Satuan Pendidikan',
-    equivalentWeeklyJP: 12,
-    description: 'Ekuivalen dengan 12 (dua belas) jam tatap muka per minggu',
-  },
-  {
-    role: 'Ketua Program Keahlian (SMK)',
-    equivalentWeeklyJP: 12,
-    description: 'Ekuivalen dengan 12 (dua belas) jam tatap muka per minggu',
-  },
-  {
-    role: 'Kepala Perpustakaan Satuan Pendidikan',
-    equivalentWeeklyJP: 12,
-    description: 'Ekuivalen dengan 12 (dua belas) jam tatap muka per minggu',
-  },
-  {
-    role: 'Kepala Laboratorium / Bengkel / Unit Produksi',
-    equivalentWeeklyJP: 12,
-    description: 'Ekuivalen dengan 12 (dua belas) jam tatap muka per minggu',
-  },
-  {
-    role: 'Pembimbing Khusus pada Satuan Pendidikan Inklusif',
-    equivalentWeeklyJP: 6,
-    description: 'Ekuivalen dengan 6 (enam) jam tatap muka per minggu',
-  },
-  {
-    role: 'Wali Kelas',
-    equivalentWeeklyJP: 2,
-    description: 'Ekuivalen dengan 2 (dua) jam tatap muka per minggu',
-  },
-  {
-    role: 'Pembina Organisasi Siswa Intra Sekolah (OSIS)',
-    equivalentWeeklyJP: 2,
-    description: 'Ekuivalen dengan 2 (dua) jam tatap muka per minggu',
-  },
-  {
-    role: 'Pembina Ekstrakurikuler',
-    equivalentWeeklyJP: 2,
-    description: 'Ekuivalen dengan 2 (dua) jam tatap muka per minggu',
-  },
-  {
-    role: 'Koordinator Projek Penguatan Profil Pelajar Pancasila (P5)',
-    equivalentWeeklyJP: 2,
-    description: 'Ekuivalen dengan 2 (dua) jam tatap muka per rombel/fase',
-  },
-  {
-    role: 'Koordinator Pengembangan Keprofesian Berkelanjutan (PKB)',
-    equivalentWeeklyJP: 2,
-    description: 'Ekuivalen dengan 2 (dua) jam tatap muka per minggu',
-  },
-  {
-    role: 'Koordinator Penilaian Kinerja Guru (PKG)',
-    equivalentWeeklyJP: 2,
-    description: 'Ekuivalen dengan 2 (dua) jam tatap muka per minggu',
-  },
-  {
-    role: 'Guru Piket',
-    equivalentWeeklyJP: 1,
-    description: 'Ekuivalen dengan 1 (satu) jam tatap muka per minggu',
-  },
-];
-
-/**
- * Normalizes user curriculum string into standard enum
- */
-export function getCurriculumType(curriculumString?: string): CurriculumType {
-  if (!curriculumString) return 'KURIKULUM_MERDEKA';
-  const lower = curriculumString.toLowerCase();
-  if (lower.includes('2013') || lower.includes('k13') || lower.includes('k-13')) {
-    return 'K13';
-  }
-  return 'KURIKULUM_MERDEKA';
+function normalizeText(text?: string): string {
+  if (!text) return '';
+  return text
+    .toLowerCase()
+    .replace(/[(),.\-_/]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /**
- * Normalizes grade string (e.g. "4", "Kelas 4", "IV" -> "Kelas 4")
- */
-export function normalizeGrade(gradeStr?: string): string {
-  if (!gradeStr) return 'Kelas 1';
-  const trimmed = gradeStr.trim();
-  if (/^kelas\s+/i.test(trimmed)) {
-    return trimmed.replace(/^kelas\s+/i, 'Kelas ');
-  }
-  if (/^\d+$/.test(trimmed)) {
-    return `Kelas ${trimmed}`;
-  }
-  return trimmed;
-}
-
-/**
- * 1. getSubjectJP(): Mengambil alokasi JP resmi suatu mata pelajaran dari Master Struktur Kurikulum
+ * Lookup JP Mata Pelajaran dari Master Struktur Kurikulum Resmi Pemerintah
  *
- * Jangan samakan 24 JP guru dengan JP mata pelajaran!
- * 24 JP adalah beban kerja minimal guru tatap muka, sedangkan JP mata pelajaran
- * berasal dari Struktur Kurikulum resmi pemerintah.
+ * JANGAN MENGARANG ANGKA:
+ * Jika mapel/tingkat tidak ditemukan dalam database resmi:
+ * kembalikan weeklyJP = null dan status 'UNVERIFIED'.
  */
 export function getSubjectJP(query: SubjectJPQuery): SubjectJPResult {
-  const curType = query.curriculumType || getCurriculumType(query.curriculum);
-  const normLevel = (query.level || 'SD').toUpperCase() as 'PAUD' | 'SD' | 'SMP' | 'SMA' | 'SMK';
-  const normGrade = normalizeGrade(query.grade || 'Kelas 1');
-  const rawSubject = (query.subject || '').trim();
-  const normSubject = rawSubject.toLowerCase();
+  const normCurriculum = normalizeText(query.curriculum);
+  const resolvedCurriculumType: CurriculumType =
+    query.curriculumType ||
+    (normCurriculum.includes('k13') || normCurriculum.includes('2013')
+      ? 'K13'
+      : 'KURIKULUM_MERDEKA');
 
-  // 1. Coba pencarian eksak
-  const exact = MASTER_CURRICULUM_STRUCTURE.find(
-    (item) =>
-      item.curriculumType === curType &&
-      item.level === normLevel &&
-      item.grade.toLowerCase() === normGrade.toLowerCase() &&
-      item.subject.toLowerCase() === normSubject
+  const normSubject = normalizeText(query.subject);
+  const normGrade = normalizeText(query.grade);
+  const normLevel = normalizeText(query.level);
+
+  // 1. Filter dataset berdasarkan kurikulum
+  const candidates = MASTER_CURRICULUM_STRUCTURE.filter(
+    (rule) => rule.curriculumType === resolvedCurriculumType
   );
 
-  if (exact) {
-    return {
-      weeklyJP: exact.weeklyJP,
-      annualJP: exact.annualJP,
-      kokurikulerJP: exact.kokurikulerJP,
-      totalAnnualJP: exact.totalAnnualJP,
-      isOfficial: true,
-      verificationStatus: exact.verificationStatus,
-      statusLabel: exact.verificationStatus === 'VERIFIED' ? 'Terverifikasi Resmi' : 'Belum diverifikasi',
-      regulation: exact.regulation,
-      regulationYear: exact.regulationYear,
-      source: exact.source,
-      sourceUrl: exact.sourceUrl,
-      effectiveFrom: exact.effectiveFrom,
-      curriculumType: curType,
-      matchedRule: exact,
-      explanation: `Mata Pelajaran ${exact.subject} (${exact.grade} ${exact.level}): ${exact.weeklyJP} JP/minggu sesuai ${exact.regulation}.`,
-    };
-  }
+  // 2. Pencocokan spesifik: level + grade + subject
+  let matchedRule = candidates.find((rule) => {
+    const rSubject = normalizeText(rule.subject);
+    const rGrade = normalizeText(rule.grade);
+    const rLevel = normalizeText(rule.level);
 
-  // 2. Coba pencarian fuzzy / alias (misal: "PJOK", "IPAS", "Pendidikan Pancasila / PKn")
-  const fuzzy = MASTER_CURRICULUM_STRUCTURE.find((item) => {
-    if (item.curriculumType !== curType || item.level !== normLevel) return false;
-    const itemSub = item.subject.toLowerCase();
-    return (
-      itemSub.includes(normSubject) ||
-      normSubject.includes(itemSub) ||
-      (normSubject.includes('pjok') && itemSub.includes('pjok')) ||
-      (normSubject.includes('ipas') && itemSub.includes('ipas')) ||
-      ((normSubject.includes('pancasila') || normSubject.includes('pkn') || normSubject.includes('ppkn')) &&
-        itemSub.includes('pancasila')) ||
-      (normSubject.includes('matematika') && itemSub.includes('matematika')) ||
-      (normSubject.includes('indonesia') && itemSub.includes('indonesia')) ||
-      (normSubject.includes('inggris') && itemSub.includes('inggris')) ||
-      (normSubject.includes('agama') && itemSub.includes('agama')) ||
-      (normSubject.includes('seni rupa') && itemSub.includes('seni rupa')) ||
-      (normSubject.includes('seni musik') && itemSub.includes('seni musik'))
-    );
+    const subjectMatch =
+      rSubject === normSubject ||
+      normSubject.includes(rSubject) ||
+      rSubject.includes(normSubject) ||
+      (normSubject.includes('pjok') && rSubject.includes('jasmani')) ||
+      (normSubject.includes('pancasila') && rSubject.includes('pancasila')) ||
+      (normSubject.includes('agama') && rSubject.includes('agama')) ||
+      (normSubject.includes('matematika') && rSubject.includes('matematika')) ||
+      (normSubject.includes('bahasa indonesia') && rSubject.includes('bahasa indonesia')) ||
+      (normSubject.includes('ipas') && rSubject.includes('ipas'));
+
+    const gradeMatch = !normGrade || rGrade === normGrade || normGrade.includes(rGrade) || rGrade.includes(normGrade);
+    const levelMatch = !normLevel || rLevel === normLevel;
+
+    return subjectMatch && gradeMatch && levelMatch;
   });
 
-  if (fuzzy) {
+  // 3. Fallback pencocokan subjek + level jika grade spesifik tidak match persis
+  if (!matchedRule) {
+    matchedRule = candidates.find((rule) => {
+      const rSubject = normalizeText(rule.subject);
+      const rLevel = normalizeText(rule.level);
+
+      const subjectMatch =
+        rSubject === normSubject ||
+        normSubject.includes(rSubject) ||
+        rSubject.includes(normSubject) ||
+        (normSubject.includes('pjok') && rSubject.includes('jasmani')) ||
+        (normSubject.includes('pancasila') && rSubject.includes('pancasila')) ||
+        (normSubject.includes('matematika') && rSubject.includes('matematika')) ||
+        (normSubject.includes('bahasa indonesia') && rSubject.includes('bahasa indonesia'));
+
+      const levelMatch = !normLevel || rLevel === normLevel;
+      return subjectMatch && levelMatch;
+    });
+  }
+
+  // 4. Jika ditemukan dalam database resmi
+  if (matchedRule && matchedRule.verificationStatus === 'VERIFIED') {
+    const weeklyJP = matchedRule.intrakurikulerWeeklyJP ?? matchedRule.weeklyJP ?? 4;
+    const annualJP = matchedRule.intrakurikulerAnnualJP ?? matchedRule.annualJP;
+    const kokurikulerJP = matchedRule.kokurikulerAnnualJP ?? matchedRule.kokurikulerJP;
+    const totalAnnualJP = matchedRule.totalAnnualJP;
+
     return {
-      weeklyJP: fuzzy.weeklyJP,
-      annualJP: fuzzy.annualJP,
-      kokurikulerJP: fuzzy.kokurikulerJP,
-      totalAnnualJP: fuzzy.totalAnnualJP,
+      weeklyJP,
+      intrakurikulerWeeklyJP: weeklyJP,
+      intrakurikulerAnnualJP: annualJP,
+      kokurikulerAnnualJP: kokurikulerJP,
+      totalAnnualJP,
+      annualJP,
+      kokurikulerJP,
       isOfficial: true,
-      verificationStatus: fuzzy.verificationStatus,
-      statusLabel: fuzzy.verificationStatus === 'VERIFIED' ? 'Terverifikasi Resmi' : 'Belum diverifikasi',
-      regulation: fuzzy.regulation,
-      regulationYear: fuzzy.regulationYear,
-      source: fuzzy.source,
-      sourceUrl: fuzzy.sourceUrl,
-      effectiveFrom: fuzzy.effectiveFrom,
-      curriculumType: curType,
-      matchedRule: fuzzy,
-      explanation: `Mata Pelajaran ${fuzzy.subject} (${normGrade} ${normLevel}): ${fuzzy.weeklyJP} JP/minggu sesuai ${fuzzy.regulation}.`,
+      verificationStatus: 'VERIFIED',
+      statusLabel: 'Terverifikasi Resmi',
+      sourceType: 'OFFICIAL',
+      regulation: matchedRule.regulation,
+      regulationYear: matchedRule.regulationYear,
+      source: matchedRule.source,
+      sourceUrl: matchedRule.sourceUrl,
+      effectiveFrom: matchedRule.effectiveFrom,
+      curriculumType: matchedRule.curriculumType,
+      matchedRule,
+      explanation: `Alokasi intrakurikuler resmi: ${weeklyJP} JP/minggu (${annualJP ? `${annualJP} JP/tahun` : ''}${kokurikulerJP ? `, Kokurikuler/P5: ${kokurikulerJP} JP/tahun` : ''}) berdasarkan ${matchedRule.regulation}.`,
     };
   }
 
-  // 3. Jika tidak ditemukan di database resmi:
-  // JANGAN mengarang nilai sebagai resmi! Kembalikan status "Belum diverifikasi"
-  const defaultFallbackJP = normLevel === 'SD' ? 4 : normLevel === 'SMP' ? 3 : 2;
+  // 5. JANGAN MENGARANG: Mapel tidak ditemukan dalam master resmi
   return {
-    weeklyJP: defaultFallbackJP,
+    weeklyJP: null,
+    intrakurikulerWeeklyJP: null,
     isOfficial: false,
     verificationStatus: 'UNVERIFIED',
     statusLabel: 'Belum diverifikasi',
-    regulation: 'Struktur Mandiri / Belum Diverifikasi',
-    regulationYear: new Date().getFullYear(),
-    source: 'Nilai Default / Input Pengguna',
-    curriculumType: curType,
-    explanation: `Mata pelajaran "${rawSubject || '-'}" belum diverifikasi dalam struktur regulasi resmi. Nilai standar awal: ${defaultFallbackJP} JP/minggu (dapat disesuaikan mandiri).`,
+    sourceType: 'UNVERIFIED',
+    source: 'Struktur Kurikulum Belum Diverifikasi',
+    curriculumType: resolvedCurriculumType,
+    explanation: `Mata pelajaran "${query.subject || 'Mapel'}" pada ${query.level || ''} ${query.grade || ''} belum terdaftar dalam struktur regulasi baku. Silakan tetapkan JP intrakurikuler secara manual.`,
   };
 }
 
 /**
- * 2. calculateAvailableJP(): Menghitung JP Tersedia berdasarkan rumus resmi
- * Formula Inti: JP per minggu × minggu efektif = JP tersedia
+ * Menghitung rincian Hari Efektif Belajar berdasarkan rentang kalender dan agenda sekolah.
+ * Tidak ada arbitrary clamp atau pembatasan buatan.
  */
-export function calculateAvailableJP(
-  jpPerWeek: number,
-  effectiveWeeks: number,
-  details?: {
-    semester?: string;
-    academicYear?: string;
-    level?: string;
-    grade?: string;
-    subject?: string;
+export function calculateEffectiveDays(
+  calendar: Partial<AcademicCalendar> & { startDate: string; endDate: string; schoolDaysPerWeek?: number },
+  calendarDays: CalendarDay[] = []
+): EffectiveDayResult {
+  const schoolDaysPerWeek = Number(calendar.schoolDaysPerWeek) === 6 ? 6 : 5;
+  const start = new Date(calendar.startDate);
+  const end = new Date(calendar.endDate);
+
+  const holidays: Array<{ date: string; notes?: string }> = [];
+  const events: Array<{ date: string; notes?: string }> = [];
+  const assessments: Array<{ date: string; notes?: string }> = [];
+  const nonLearning: Array<{ date: string; notes?: string }> = [];
+
+  if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) {
+    return {
+      totalCalendarDays: 0,
+      scheduledSchoolDays: 0,
+      effectiveLearningDays: 0,
+      holidayDays: 0,
+      schoolEventDays: 0,
+      assessmentDays: 0,
+      nonLearningDays: 0,
+      breakdown: { holidays, events, assessments, nonLearning },
+    };
   }
-): AvailableJPCalculation {
-  const safeJp = Math.max(0, Number(jpPerWeek) || 0);
-  const safeWeeks = Math.max(0, Number(effectiveWeeks) || 0);
-  const availableJP = safeJp * safeWeeks;
+
+  // Map agenda hari yang ditandai khusus
+  const dayMap = new Map<string, CalendarDay>();
+  for (const day of calendarDays) {
+    if (day.date) {
+      dayMap.set(day.date, day);
+    }
+  }
+
+  let totalCalendarDays = 0;
+  let scheduledSchoolDays = 0;
+  let effectiveLearningDays = 0;
+  let holidayDays = 0;
+  let schoolEventDays = 0;
+  let assessmentDays = 0;
+  let nonLearningDays = 0;
+
+  const current = new Date(start);
+  while (current <= end) {
+    totalCalendarDays++;
+    const dayOfWeek = current.getDay(); // 0: Sunday, 1: Mon, ..., 6: Sat
+
+    // Cek apakah hari sekolah terjadwal
+    // 5 hari kerja: Senin (1) s.d. Jumat (5)
+    // 6 hari kerja: Senin (1) s.d. Sabtu (6)
+    const isScheduledSchoolDay =
+      schoolDaysPerWeek === 6
+        ? dayOfWeek >= 1 && dayOfWeek <= 6
+        : dayOfWeek >= 1 && dayOfWeek <= 5;
+
+    if (isScheduledSchoolDay) {
+      scheduledSchoolDays++;
+      const dateStr = current.toISOString().slice(0, 10);
+      const specialDay = dayMap.get(dateStr);
+
+      if (specialDay) {
+        const normStatus = (specialDay.status || '').toUpperCase();
+        if (normStatus === 'HOLIDAY' || specialDay.status === 'holiday') {
+          holidayDays++;
+          holidays.push({ date: dateStr, notes: specialDay.notes });
+        } else if (normStatus === 'SCHOOL_EVENT' || specialDay.status === 'schoolEvent') {
+          schoolEventDays++;
+          events.push({ date: dateStr, notes: specialDay.notes });
+        } else if (normStatus === 'ASSESSMENT') {
+          assessmentDays++;
+          assessments.push({ date: dateStr, notes: specialDay.notes });
+        } else if (
+          normStatus === 'BREAK' ||
+          normStatus === 'NON_LEARNING' ||
+          specialDay.status === 'other' ||
+          specialDay.status === 'weekend'
+        ) {
+          nonLearningDays++;
+          nonLearning.push({ date: dateStr, notes: specialDay.notes });
+        } else {
+          // EFFECTIVE_LEARNING / effective
+          effectiveLearningDays++;
+        }
+      } else {
+        effectiveLearningDays++;
+      }
+    }
+
+    current.setDate(current.getDate() + 1);
+  }
 
   return {
-    jpPerWeek: safeJp,
-    effectiveWeeks: safeWeeks,
-    availableJP,
-    formula: 'JP per minggu × minggu efektif = JP tersedia',
-    formulaCalculation: `${safeJp} JP/minggu × ${safeWeeks} minggu efektif = ${availableJP} JP tersedia`,
-    details: details || {},
+    totalCalendarDays,
+    scheduledSchoolDays,
+    effectiveLearningDays,
+    holidayDays,
+    schoolEventDays,
+    assessmentDays,
+    nonLearningDays,
+    breakdown: {
+      holidays,
+      events,
+      assessments,
+      nonLearning,
+    },
   };
 }
 
 /**
- * 3. calculateSemesterJP(): Menghitung total alokasi JP untuk 1 semester
+ * Menghitung Minggu Efektif Ekuivalen dari Hari Efektif Belajar
  */
-export function calculateSemesterJP(jpPerWeek: number, semesterEffectiveWeeks: number): number {
-  return Math.max(0, Number(jpPerWeek) || 0) * Math.max(0, Number(semesterEffectiveWeeks) || 0);
+export function calculateEffectiveWeeks(
+  effectiveLearningDays: number,
+  schoolDaysPerWeek: number = 5
+): {
+  effectiveWeeksEquivalent: number;
+  effectiveWeeksRounded: number;
+} {
+  const daysPerWeek = Math.max(1, schoolDaysPerWeek || 5);
+  const equivalent = Math.max(0, effectiveLearningDays) / daysPerWeek;
+  const rounded = Math.round(equivalent * 10) / 10;
+  return {
+    effectiveWeeksEquivalent: equivalent,
+    effectiveWeeksRounded: rounded,
+  };
 }
 
 /**
- * 4. calculateAnnualJP(): Menghitung total alokasi JP untuk 1 tahun pelajaran
+ * Menghitung Alokasi Jam Pelajaran (JP) Tersedia dalam satu semester
+ * Formula: JP Mingguan × (Hari Efektif Belajar ÷ Hari Sekolah per Minggu)
  */
-export function calculateAnnualJP(jpPerWeek: number, annualEffectiveWeeks: number): number {
-  return Math.max(0, Number(jpPerWeek) || 0) * Math.max(0, Number(annualEffectiveWeeks) || 0);
-}
+export function calculateAvailableJP(params: {
+  subjectWeeklyJP: number;
+  effectiveLearningDays: number;
+  schoolDaysPerWeek?: number;
+  semester?: string;
+  academicYear?: string;
+  level?: string;
+  grade?: string;
+  subject?: string;
+  officialAnnualJP?: number;
+}): AvailableJPResult {
+  const daysPerWeek = Math.max(1, params.schoolDaysPerWeek || 5);
+  const subjectWeeklyJP = Math.max(0, Number(params.subjectWeeklyJP) || 0);
+  const effectiveLearningDays = Math.max(0, Number(params.effectiveLearningDays) || 0);
 
-/**
- * 5. validateTeacherTeachingLoad():
- * Memvalidasi pemenuhan Beban Kerja Tatap Muka Guru sesuai Permendikbud No. 15 Tahun 2018 jo Permendikbudristek No. 25 Tahun 2024
- *
- * Konsep:
- * - Beban Tatap Muka Guru = Σ (Jumlah Rombel Kelas × JP Mapel per Minggu)
- * - Beban Kerja Total Guru = Beban Tatap Muka + Ekuivalensi Tugas Tambahan
- * - Standar Pemenuhan Sertifikasi/Tunjangan Profesi: 24 s.d. 40 JP per minggu
- */
-export function validateTeacherTeachingLoad(
-  assignments: TeachingAssignment[] = [],
-  additionalDuties: AdditionalDuty[] = [],
-  teacherName?: string
-): TeacherLoadValidationResult {
-  // 1. Hitung total JP tatap muka riil
-  const assignmentsBreakdown = assignments.map((a) => {
-    const classCount = Math.max(1, Number(a.classCount) || 1);
-    const weeklyJP = Math.max(0, Number(a.weeklyJP) || 0);
-    const subtotalJP = classCount * weeklyJP;
-    return {
-      subject: a.subject || 'Mata Pelajaran',
-      grade: a.grade || 'Rombel',
-      weeklyJP,
-      classCount,
-      subtotalJP,
-    };
-  });
-
-  const totalDirectTeachingJP = assignmentsBreakdown.reduce((sum, item) => sum + item.subtotalJP, 0);
-
-  // 2. Hitung total JP tugas tambahan
-  const additionalDutiesBreakdown = additionalDuties.map((d) => ({
-    role: d.role,
-    equivalentWeeklyJP: Math.max(0, Number(d.equivalentWeeklyJP) || 0),
-    decreeNumber: d.decreeNumber,
-  }));
-
-  const totalAdditionalDutiesJP = additionalDutiesBreakdown.reduce(
-    (sum, item) => sum + item.equivalentWeeklyJP,
-    0
+  const { effectiveWeeksEquivalent, effectiveWeeksRounded } = calculateEffectiveWeeks(
+    effectiveLearningDays,
+    daysPerWeek
   );
 
-  // 3. Hitung total beban kerja
-  const totalWorkloadJP = totalDirectTeachingJP + totalAdditionalDutiesJP;
-  const minimumRequirementJP = 24;
-  const maximumRequirementJP = 40;
+  const exactAvailableJP = subjectWeeklyJP * (effectiveLearningDays / daysPerWeek);
+  const availableJP = Math.round(exactAvailableJP);
 
-  const isMinimumFulfilled = totalWorkloadJP >= minimumRequirementJP;
-  const isWithinMaximum = totalWorkloadJP <= maximumRequirementJP;
+  // Batasi / validasi terhadap kapasitas struktur tahunan resmi
+  let isCapacityExceeded = false;
+  let capacityWarning: string | undefined;
+  if (params.officialAnnualJP && params.officialAnnualJP > 0) {
+    const projectedAnnualJP = availableJP * 2;
+    if (projectedAnnualJP > params.officialAnnualJP * 1.15) {
+      isCapacityExceeded = true;
+      capacityWarning = `Perhatian: Proyeksi JP tahunan (${projectedAnnualJP} JP) melampaui alokasi struktur kurikulum resmi (${params.officialAnnualJP} JP/tahun). Periksa kembali kalender akademik.`;
+    }
+  }
 
-  let status: 'BELUM_MEMENUHI' | 'MEMENUHI' | 'MELEBIHI_BATAS_MAKSIMAL' = 'MEMENUHI';
-  let statusLabel = 'Memenuhi Ketentuan (24 - 40 JP)';
-  let statusDescription = `Beban mengajar ${totalWorkloadJP} JP/minggu telah memenuhi standar pemenuhan beban kerja guru (24 - 40 JP/minggu).`;
+  const formula = 'JP Mingguan × (Hari Efektif Belajar ÷ Hari Sekolah/Minggu)';
+  const formulaCalculation = `${subjectWeeklyJP} JP/minggu × (${effectiveLearningDays} hari ÷ ${daysPerWeek} hari/minggu) = ${subjectWeeklyJP} × ${effectiveWeeksRounded} = ${availableJP} JP`;
 
-  if (!isMinimumFulfilled) {
-    status = 'BELUM_MEMENUHI';
-    const shortage = minimumRequirementJP - totalWorkloadJP;
-    statusLabel = `Kurang ${shortage} JP (Total: ${totalWorkloadJP} / 24 JP)`;
-    statusDescription = `Beban mengajar saat ini ${totalWorkloadJP} JP/minggu, masih kurang ${shortage} JP untuk memenuhi batas minimal 24 JP/minggu (Permendikbud No. 15 Tahun 2018).`;
-  } else if (!isWithinMaximum) {
-    status = 'MELEBIHI_BATAS_MAKSIMAL';
-    const excess = totalWorkloadJP - maximumRequirementJP;
-    statusLabel = `Melebihi Batas Maksimal (+${excess} JP)`;
-    statusDescription = `Total beban mengajar ${totalWorkloadJP} JP/minggu telah melebihi batas maksimal yang diperkenankan (40 JP/minggu).`;
+  return {
+    subjectWeeklyJP,
+    effectiveLearningDays,
+    schoolDaysPerWeek: daysPerWeek,
+    effectiveWeeksEquivalent,
+    effectiveWeeksRounded,
+    availableJP,
+    formula,
+    formulaCalculation,
+    isCapacityExceeded,
+    capacityWarning,
+    officialAnnualJP: params.officialAnnualJP,
+    details: {
+      semester: params.semester,
+      academicYear: params.academicYear,
+      level: params.level,
+      grade: params.grade,
+      subject: params.subject,
+    },
+    jpPerWeek: subjectWeeklyJP,
+    effectiveWeeks: effectiveWeeksRounded,
+  };
+}
+
+/**
+ * Validasi Keseluruhan Distribusi Alokasi Waktu (TP / KD) terhadap JP Tersedia
+ */
+export function validateTimeAllocations(
+  allocations: Array<{ jp?: number; allocatedJP?: number }>,
+  availableJP: number
+): TimeAllocationValidationResult {
+  const totalAllocatedJP = allocations.reduce((sum, item) => {
+    const jp = Number(item.allocatedJP ?? item.jp) || 0;
+    return sum + jp;
+  }, 0);
+
+  const remainingJP = availableJP - totalAllocatedJP;
+  let status: TimeAllocationStatus = 'BALANCED';
+  let statusLabel = 'Alokasi Seimbang';
+  let statusDescription = `Total alokasi waktu (${totalAllocatedJP} JP) tepat sama dengan kapasitas JP tersedia (${availableJP} JP).`;
+
+  if (remainingJP > 0) {
+    status = 'UNDER_ALLOCATED';
+    statusLabel = 'Alokasi Belum Lengkap';
+    statusDescription = `Terdapat sisa ${remainingJP} JP yang belum dialokasikan dari total ${availableJP} JP tersedia.`;
+  } else if (remainingJP < 0) {
+    status = 'OVER_ALLOCATED';
+    statusLabel = 'Alokasi Melebihi JP Tersedia';
+    statusDescription = `Total alokasi (${totalAllocatedJP} JP) melampaui JP tersedia (${availableJP} JP) sebesar ${Math.abs(remainingJP)} JP.`;
   }
 
   return {
-    teacherName,
-    totalDirectTeachingJP,
-    totalAdditionalDutiesJP,
-    totalWorkloadJP,
-    minimumRequirementJP,
-    maximumRequirementJP,
-    isMinimumFulfilled,
-    isWithinMaximum,
+    availableJP,
+    totalAllocatedJP,
+    remainingJP,
     status,
     statusLabel,
     statusDescription,
-    breakdown: {
-      assignments: assignmentsBreakdown,
-      additionalDuties: additionalDutiesBreakdown,
-    },
-    regulatoryBasis: 'Permendikbud No. 15 Tahun 2018 jo Permendikbudristek No. 25 Tahun 2024',
+    allocationsCount: allocations.length,
   };
 }
 
 /**
- * 6. deriveEffectiveJP(): Menurunkan JP mata pelajaran untuk `totalHoursPerWeek`
- * Menjamin `totalHoursPerWeek` diperlakukan sebagai derived value atau controlled override
+ * Menurunkan nilai JP intrakurikuler mata pelajaran dengan pelacakan provenance yang jelas
  */
 export function deriveEffectiveJP(setting: {
   curriculum?: string;
@@ -1607,12 +1465,15 @@ export function deriveEffectiveJP(setting: {
   level?: string;
   grade?: string;
   subject?: string;
+  subjectWeeklyJP?: number;
   totalHoursPerWeek?: number;
   isHoursOverridden?: boolean;
+  hoursSourceType?: 'OFFICIAL' | 'USER_OVERRIDE' | 'UNVERIFIED' | 'LEGACY_VALUE';
 }): {
   weeklyJP: number;
   isOfficial: boolean;
   isOverridden: boolean;
+  sourceType: 'OFFICIAL' | 'USER_OVERRIDE' | 'UNVERIFIED' | 'LEGACY_VALUE';
   ruleResult: SubjectJPResult;
   sourceExplanation: string;
 } {
@@ -1624,21 +1485,73 @@ export function deriveEffectiveJP(setting: {
     subject: setting.subject,
   });
 
-  if (setting.isHoursOverridden && setting.totalHoursPerWeek !== undefined && setting.totalHoursPerWeek > 0) {
+  const customValue = setting.subjectWeeklyJP ?? setting.totalHoursPerWeek;
+
+  if (
+    (setting.isHoursOverridden || setting.hoursSourceType === 'USER_OVERRIDE') &&
+    customValue !== undefined &&
+    customValue > 0
+  ) {
     return {
-      weeklyJP: setting.totalHoursPerWeek,
-      isOfficial: ruleResult.isOfficial && setting.totalHoursPerWeek === ruleResult.weeklyJP,
+      weeklyJP: customValue,
+      isOfficial: ruleResult.isOfficial && customValue === ruleResult.weeklyJP,
       isOverridden: true,
+      sourceType: 'USER_OVERRIDE',
       ruleResult,
-      sourceExplanation: `Manual Override Guru (${setting.totalHoursPerWeek} JP/minggu). Standar resmi: ${ruleResult.weeklyJP} JP/minggu (${ruleResult.regulation}).`,
+      sourceExplanation: `Manual Override Guru (${customValue} JP/minggu). ${ruleResult.isOfficial ? `Standar resmi: ${ruleResult.weeklyJP} JP/minggu (${ruleResult.regulation}).` : 'Belum diverifikasi dalam regulasi resmi.'}`,
+    };
+  }
+
+  if (ruleResult.isOfficial && ruleResult.weeklyJP !== null) {
+    return {
+      weeklyJP: ruleResult.weeklyJP,
+      isOfficial: true,
+      isOverridden: false,
+      sourceType: 'OFFICIAL',
+      ruleResult,
+      sourceExplanation: ruleResult.explanation,
     };
   }
 
   return {
-    weeklyJP: ruleResult.weeklyJP,
-    isOfficial: ruleResult.isOfficial,
+    weeklyJP: customValue || 0,
+    isOfficial: false,
     isOverridden: false,
+    sourceType: 'UNVERIFIED',
     ruleResult,
     sourceExplanation: ruleResult.explanation,
   };
+}
+
+/** @deprecated Compatibility wrapper */
+export function calculateSemesterJP(jpPerWeek: number, semesterEffectiveWeeks: number): number {
+  return Math.max(0, Number(jpPerWeek) || 0) * Math.max(0, Number(semesterEffectiveWeeks) || 0);
+}
+
+/** @deprecated Compatibility wrapper */
+export function calculateAnnualJP(jpPerWeek: number, annualEffectiveWeeks: number): number {
+  return Math.max(0, Number(jpPerWeek) || 0) * Math.max(0, Number(annualEffectiveWeeks) || 0);
+}
+
+/**
+ * Normalizes curriculum string or type to canonical CurriculumType
+ */
+export function getCurriculumType(curriculum?: string, curriculumType?: CurriculumType): CurriculumType {
+  if (curriculumType === 'K13' || curriculumType === 'KURIKULUM_MERDEKA') {
+    return curriculumType;
+  }
+  const curr = (curriculum || '').toLowerCase();
+  if (curr.includes('k13') || curr.includes('2013')) {
+    return 'K13';
+  }
+  return 'KURIKULUM_MERDEKA';
+}
+
+/** @deprecated Compatibility wrapper */
+export function validateTeacherTeachingLoad(
+  assignments: TeachingAssignment[] = [],
+  additionalDuties: AdditionalDuty[] = [],
+  teacherName?: string
+): TeacherLoadValidationResult {
+  return calculateTeacherWorkload(assignments, additionalDuties, teacherName);
 }

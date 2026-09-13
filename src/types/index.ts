@@ -88,8 +88,11 @@ export interface AcademicSetting {
   grade: string; // e.g. "Kelas 4"
   phase: string; // e.g. "Fase B" (derived from grade)
   subject: string; // e.g. "Bahasa Indonesia"
+  subjectWeeklyJP?: number; // JP Intrakurikuler Mapel per Minggu (Domain ideal)
+  /** @deprecated Compatibility alias. Mirrors subjectWeeklyJP */
   totalHoursPerWeek?: number; // e.g. 4 JP / minggu
   isHoursOverridden?: boolean;
+  hoursSourceType?: 'OFFICIAL' | 'USER_OVERRIDE' | 'UNVERIFIED' | 'LEGACY_VALUE';
   regulationReference?: string;
   updatedAt: string;
 }
@@ -109,8 +112,11 @@ export interface ActiveContext {
   grade: string;
   phase: string;
   subject: string;
+  subjectWeeklyJP?: number;
+  /** @deprecated Compatibility alias */
   totalHoursPerWeek?: number;
   isHoursOverridden?: boolean;
+  hoursSourceType?: 'OFFICIAL' | 'USER_OVERRIDE' | 'UNVERIFIED' | 'LEGACY_VALUE';
   regulationReference?: string;
 }
 
@@ -244,6 +250,8 @@ export interface Student {
 // ==========================================
 // MODUL A: PERENCANAAN WAKTU
 // ==========================================
+export type CalendarSourceType = 'REGIONAL_CALENDAR' | 'SCHOOL_CALENDAR' | 'MANUAL';
+
 export interface AcademicCalendar {
   id: string;
   academicSettingId: string;
@@ -252,12 +260,28 @@ export interface AcademicCalendar {
   startDate: string; // YYYY-MM-DD
   endDate: string; // YYYY-MM-DD
   schoolDaysPerWeek: number; // 5 atau 6 hari sekolah per minggu
-  jpPerWeek: number;
+  sourceType?: CalendarSourceType;
+  sourceName?: string;
+  sourceUrl?: string;
+  /** @deprecated Compatibility alias. Prefer setting.subjectWeeklyJP */
+  jpPerWeek?: number;
   notes?: string;
   updatedAt: string;
 }
 
-export type CalendarDayStatus = 'effective' | 'holiday' | 'schoolEvent' | 'weekend' | 'other';
+export type CalendarDayStatus =
+  | 'EFFECTIVE_LEARNING'
+  | 'HOLIDAY'
+  | 'SCHOOL_EVENT'
+  | 'ASSESSMENT'
+  | 'BREAK'
+  | 'NON_LEARNING'
+  // Legacy aliases
+  | 'effective'
+  | 'holiday'
+  | 'schoolEvent'
+  | 'weekend'
+  | 'other';
 
 export interface CalendarDay {
   id: string;
@@ -270,13 +294,39 @@ export interface CalendarDay {
 export interface TimeAllocation {
   id: string;
   academicSettingId: string;
+  sourceType?: 'ATP_ITEM' | 'TP' | 'KD' | 'K13_OBJECTIVE' | 'ASSESSMENT' | 'RESERVE';
+  sourceId?: string;
   tpId?: string;
   atpItemId?: string;
   weekNumber?: number;
+  startWeek?: number;
+  endWeek?: number;
+  month?: number;
   monthName?: string;
   jp: number;
+  allocatedJP?: number;
   notes?: string;
 }
+
+export type {
+  CurriculumStructureRule,
+  MasterCurriculumStructure,
+  SubjectJPResult,
+  SubjectJPQuery,
+  JPVerificationStatus,
+  JPSourceType,
+  TeachingAssignment,
+  AdditionalDuty,
+  TeacherLoadValidationResult,
+  EffectiveDayResult,
+  AvailableJPResult,
+  AvailableJPCalculation,
+  LearningTimeAllocation,
+  TimeAllocationSourceType,
+  TimeAllocationStatus,
+  TimeAllocationValidationResult,
+  RegulatorySource,
+} from './jpEngine';
 
 // ==========================================
 // MODUL B: PELAKSANAAN & ASESMEN

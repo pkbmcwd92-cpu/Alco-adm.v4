@@ -19,21 +19,38 @@ import {
   createTableDataCell,
   createSignoffBlock,
 } from '../docxStyles';
+import { getSubjectJP, calculateAvailableJP } from '../../jpEngine';
 
 export async function generatePROTA(context: DocumentGenerationContext): Promise<GeneratedDocumentResult> {
   const { school, profile, academicSetting, atp, tp, cp } = context;
 
   const docChildren: (Paragraph | Table)[] = [];
 
+  // Look up verified official rule
+  const officialRule = getSubjectJP({
+    curriculum: academicSetting.curriculum,
+    level: academicSetting.level,
+    grade: academicSetting.grade,
+    subject: academicSetting.subject,
+  });
+
+  const weeklyJP = academicSetting.subjectWeeklyJP || academicSetting.totalHoursPerWeek || officialRule.weeklyJP || 4;
+  const annualJP = officialRule.annualJP || (weeklyJP * 36);
+
   // 1. Header
   docChildren.push(
-    ...createDocumentHeader('PROGRAM TAHUNAN (PROTA)', `${academicSetting.curriculum} — TAHUN AJARAN ${academicSetting.academicYear || '2025/2026'}`)
+    ...createDocumentHeader(
+      'PROGRAM TAHUNAN (PROTA)',
+      `${academicSetting.curriculum} — TAHUN AJARAN ${academicSetting.academicYear || '2026/2027'}`
+    )
   );
 
-  // 2. Identity Box
+  // 2. Identity Box with Provenance Metadata
   docChildren.push(
     createIdentityMetadataTable(school, profile, academicSetting, [
-      ['Alokasi Waktu per Minggu', `: ${academicSetting.totalHoursPerWeek || 4} JP / Minggu`],
+      ['Alokasi Intrakurikuler per Minggu', `: ${weeklyJP} JP / Minggu`],
+      ['Total Alokasi Waktu Tahunan', `: ${annualJP} JP / Tahun (36 Minggu Efektif Asumsi Tahunan)`],
+      ['Dasar Regulasi Struktur Kurikulum', `: ${officialRule.regulation}`],
     ])
   );
   docChildren.push(new Paragraph({ spacing: { after: 180 } }));
@@ -43,7 +60,7 @@ export async function generatePROTA(context: DocumentGenerationContext): Promise
 
   if (isK13Curriculum) {
     if (context.k13Analysis?.items && context.k13Analysis.items.length > 0) {
-      const sklText = context.k13Analysis.items[0].skl || 'Memiliki perilaku yang mencerminkan sikap orang beriman, berakhlak mulia, dan bertanggung jawab.';
+      const sklText = context.k13Analysis.items[0].skl || 'Memiliki perilaku yang mencerminkan sikap orang beriman, berakhlak mulia, dan bertanggung jawab sesuai standar kompetensi lulusan.';
       docChildren.push(
         new Paragraph({
           heading: HeadingLevel.HEADING_3,
@@ -105,7 +122,7 @@ export async function generatePROTA(context: DocumentGenerationContext): Promise
       spacing: { before: 120, after: 80 },
       children: [
         new TextRun({
-          text: 'B. Distribusi Alokasi Waktu Pembelajaran Tahunan',
+          text: 'B. Distribusi Alokasi Waktu Pembelajaran Tahunan (Semester Ganjil & Genap)',
           bold: true,
           size: 22,
           font: 'Arial',
@@ -146,7 +163,7 @@ export async function generatePROTA(context: DocumentGenerationContext): Promise
   if (isK13Curriculum) {
     const k13Items = context.k13Analysis?.items || [];
     tableDataRows = k13Items.map((item, index) => {
-      const jpVal = Number(academicSetting.totalHoursPerWeek) || 4;
+      const jpVal = weeklyJP;
       totalJpSum += jpVal;
       return new TableRow({
         children: [
@@ -154,7 +171,7 @@ export async function generatePROTA(context: DocumentGenerationContext): Promise
           createTableDataCell(item.kd, 30, AlignmentType.LEFT, true),
           createTableDataCell(`${item.materi || '-'}\nKegiatan: ${item.kegiatan || '-'}`, 34, AlignmentType.LEFT),
           createTableDataCell(`${jpVal} JP`, 15, AlignmentType.CENTER, true),
-          createTableDataCell(semesterLabel, 15, AlignmentType.CENTER),
+          createTableDataCell(index < Math.ceil(k13Items.length / 2) ? 'Semester 1 (Ganjil)' : 'Semester 2 (Genap)', 15, AlignmentType.CENTER),
         ],
       });
     });
@@ -163,7 +180,7 @@ export async function generatePROTA(context: DocumentGenerationContext): Promise
     const items = atp?.items && atp.items.length > 0 ? atp.items : [];
 
     tableDataRows = items.map((item, index) => {
-      const jpVal = Number(item.jp) || 4;
+      const jpVal = Number(item.jp) || weeklyJP;
       totalJpSum += jpVal;
 
       return new TableRow({
@@ -185,26 +202,13 @@ export async function generatePROTA(context: DocumentGenerationContext): Promise
             ],
           }),
           createTableDataCell(`${jpVal} JP`, 15, AlignmentType.CENTER, true),
-          createTableDataCell(semesterLabel, 15, AlignmentType.CENTER),
+          createTableDataCell(index < Math.ceil(items.length / 2) ? 'Semester 1 (Ganjil)' : 'Semester 2 (Genap)', 15, AlignmentType.CENTER),
         ],
       });
     });
   }
 
-  // Project / Cadangan / Asesmen Akhir row for realism
-  const cadanganJp = 4;
-  totalJpSum += cadanganJp;
-  const cadanganRow = new TableRow({
-    children: [
-      createTableDataCell(`${tableDataRows.length + 1}`, 6, AlignmentType.CENTER),
-      createTableDataCell('-', 14, AlignmentType.CENTER),
-      createTableDataCell('Cadangan / Asesmen Sumatif Akhir Semester & Penguatan Kokurikuler', 50),
-      createTableDataCell(`${cadanganJp} JP`, 15, AlignmentType.CENTER, true),
-      createTableDataCell(semesterLabel, 15, AlignmentType.CENTER),
-    ],
-  });
-
-  // Total JP Row
+  // Summary Row
   const totalRow = new TableRow({
     children: [
       new TableCell({
@@ -216,7 +220,7 @@ export async function generatePROTA(context: DocumentGenerationContext): Promise
             alignment: AlignmentType.RIGHT,
             children: [
               new TextRun({
-                text: 'JUMLAH ALOKASI WAKTU TAHUNAN: ',
+                text: 'TOTAL ALOKASI WAKTU INTRARIKULER TAHUNAN: ',
                 bold: true,
                 size: 20,
                 font: 'Arial',
@@ -235,7 +239,7 @@ export async function generatePROTA(context: DocumentGenerationContext): Promise
 
   const protaTable = new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
-    rows: [tableHeaderRow, ...tableDataRows, cadanganRow, totalRow],
+    rows: [tableHeaderRow, ...tableDataRows, totalRow],
   });
 
   docChildren.push(protaTable);
@@ -288,3 +292,4 @@ export async function generatePROTA(context: DocumentGenerationContext): Promise
     },
   };
 }
+

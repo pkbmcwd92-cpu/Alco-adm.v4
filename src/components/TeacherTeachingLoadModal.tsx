@@ -22,7 +22,7 @@ import {
 } from '../types';
 import {
   validateTeacherTeachingLoad,
-  OFFICIAL_ADDITIONAL_DUTIES_REFERENCE,
+  PREDEFINED_ADDITIONAL_DUTIES,
   getSubjectJP,
   MASTER_CURRICULUM_STRUCTURE,
 } from '../services/jpEngine';
@@ -56,7 +56,7 @@ export const TeacherTeachingLoadModal: React.FC<TeacherTeachingLoadModalProps> =
       subject: currentSetting.subject || 'Mata Pelajaran',
       level: currentSetting.level || 'SD',
       grade: currentSetting.grade || 'Kelas 1',
-      weeklyJP: currentSetting.totalHoursPerWeek || initialWeeklyJP || 4,
+      weeklyJP: currentSetting.subjectWeeklyJP || currentSetting.totalHoursPerWeek || initialWeeklyJP || 4,
       classCount: 1,
       isCertifiedSubject: true,
     },
@@ -72,7 +72,7 @@ export const TeacherTeachingLoadModal: React.FC<TeacherTeachingLoadModalProps> =
   const [newClassCount, setNewClassCount] = useState<number>(1);
 
   // Form input state for adding additional duty
-  const [selectedDutyRole, setSelectedDutyRole] = useState(OFFICIAL_ADDITIONAL_DUTIES_REFERENCE[0].role);
+  const [selectedDutyRole, setSelectedDutyRole] = useState(PREDEFINED_ADDITIONAL_DUTIES[0].role);
   const [dutyDecreeNumber, setDutyDecreeNumber] = useState('');
 
   // Selected preset JP lookup for new assignment
@@ -84,7 +84,7 @@ export const TeacherTeachingLoadModal: React.FC<TeacherTeachingLoadModalProps> =
       grade: grd,
       subject: sub,
     });
-    setNewWeeklyJP(lookup.weeklyJP);
+    setNewWeeklyJP(lookup.weeklyJP ?? 4);
   };
 
   const handleAddAssignment = () => {
@@ -111,12 +111,12 @@ export const TeacherTeachingLoadModal: React.FC<TeacherTeachingLoadModalProps> =
   };
 
   const handleAddDuty = () => {
-    const dutyRef = OFFICIAL_ADDITIONAL_DUTIES_REFERENCE.find((d) => d.role === selectedDutyRole);
+    const dutyRef = PREDEFINED_ADDITIONAL_DUTIES.find((d) => d.role === selectedDutyRole);
     if (!dutyRef) return;
     const newDuty: AdditionalDuty = {
       id: `duty-${Date.now()}`,
       role: dutyRef.role,
-      equivalentWeeklyJP: dutyRef.equivalentWeeklyJP,
+      equivalentWeeklyJP: dutyRef.defaultJP,
       decreeNumber: dutyDecreeNumber.trim() || undefined,
     };
     setAdditionalDuties((prev) => [...prev, newDuty]);
@@ -436,9 +436,9 @@ export const TeacherTeachingLoadModal: React.FC<TeacherTeachingLoadModalProps> =
                   onChange={(e) => setSelectedDutyRole(e.target.value)}
                   className="px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs flex-1 min-w-[200px]"
                 >
-                  {OFFICIAL_ADDITIONAL_DUTIES_REFERENCE.map((d) => (
+                  {PREDEFINED_ADDITIONAL_DUTIES.map((d) => (
                     <option key={d.role} value={d.role}>
-                      {d.role} (+{d.equivalentWeeklyJP} JP)
+                      {d.role} (+{d.defaultJP} JP)
                     </option>
                   ))}
                 </select>
