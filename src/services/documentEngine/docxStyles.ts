@@ -81,13 +81,22 @@ export function createIdentityMetadataTable(
   academicSetting: AcademicSetting,
   extraRows: [string, string][] = []
 ): Table {
+  const isK13Curriculum =
+    academicSetting.curriculumType === 'K13' ||
+    (academicSetting.curriculum &&
+      (academicSetting.curriculum.includes('2013') || academicSetting.curriculum.includes('K13')));
+
+  const classRow: [string, string] = isK13Curriculum
+    ? ['Kelas', `: ${academicSetting.grade || '-'}`]
+    : ['Fase / Kelas', `: ${academicSetting.phase || '-'} / ${academicSetting.grade || '-'}`];
+
   const baseRows: [string, string][] = [
     ['Satuan Pendidikan', `: ${school.name || '-'}`],
     ['NPSN', `: ${school.npsn || '-'}`],
     ['Alamat', `: ${school.address || '-'}`],
     ['Kurikulum', `: ${academicSetting.curriculum || 'Kurikulum Merdeka'}`],
     ['Mata Pelajaran', `: ${academicSetting.subject || '-'}`],
-    ['Fase / Kelas', `: ${academicSetting.phase || '-'} / ${academicSetting.grade || '-'}`],
+    classRow,
     ['Tahun Ajaran / Semester', `: ${academicSetting.academicYear || '-'} / ${academicSetting.semester || '-'}`],
     ['Guru Mata Pelajaran', `: ${profile.name || '-'}`],
     ['NIP Guru', `: ${profile.nip || '-'}`],

@@ -76,12 +76,26 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
   const isATPComplete = !!(atp?.items && atp.items.length > 0);
 
   // K13 steps completion & gating
-  const hasK13KD = !!(k13Analysis?.items && k13Analysis.items.length > 0);
+  const hasK13KD = !!(
+    k13Analysis?.items &&
+    k13Analysis.items.length > 0 &&
+    k13Analysis.items.some((i) => i.kd && i.kd.trim().length > 0)
+  );
   const hasK13Analisis = !!(
-    k13Analysis?.items && k13Analysis.items.some((i) => (i.materi && i.materi.trim().length > 0) || (i.kegiatan && i.kegiatan.trim().length > 0))
+    hasK13KD &&
+    k13Analysis?.items &&
+    k13Analysis.items.some(
+      (i) => (i.materi && i.materi.trim().length > 0) || (i.kegiatan && i.kegiatan.trim().length > 0)
+    )
   );
   const hasK13TujuanIndikator = !!(
-    k13Analysis?.items && k13Analysis.items.some((i) => (i.indikator && i.indikator.trim().length > 0) || (i.tujuanPembelajaran && i.tujuanPembelajaran.trim().length > 0))
+    hasK13Analisis &&
+    k13Analysis?.items &&
+    k13Analysis.items.some(
+      (i) =>
+        (i.indikator && i.indikator.trim().length > 0) ||
+        (i.tujuanPembelajaran && i.tujuanPembelajaran.trim().length > 0)
+    )
   );
 
   // Build steps list depending on curriculum
@@ -133,7 +147,7 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
           icon: <ListChecks className="w-4 h-4" />,
           isComplete: hasK13Analisis,
           isLocked: !hasK13KD,
-          lockReason: 'Memerlukan data SKL / KI / KD terlebih dahulu',
+          lockReason: 'Memerlukan data SKL/KI/KD terlebih dahulu',
         },
         {
           id: 'k13-tujuan',
@@ -142,8 +156,8 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
           sub: 'Tujuan Pembelajaran & IPK',
           icon: <Calculator className="w-4 h-4" />,
           isComplete: hasK13TujuanIndikator,
-          isLocked: !hasK13KD,
-          lockReason: 'Memerlukan data KD & Analisis terlebih dahulu',
+          isLocked: !hasK13Analisis,
+          lockReason: 'Memerlukan Analisis KD & Materi terlebih dahulu',
         },
         {
           id: 'admin',
@@ -151,9 +165,9 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
           title: 'ADMINISTRASI',
           sub: 'Perencanaan & Nilai',
           icon: <FileCheck2 className="w-4 h-4" />,
-          isComplete: hasK13TujuanIndikator || hasK13KD,
-          isLocked: !hasK13KD,
-          lockReason: 'Memerlukan data KD & Analisis terlebih dahulu',
+          isComplete: hasK13TujuanIndikator,
+          isLocked: !hasK13TujuanIndikator,
+          lockReason: 'Memerlukan Tujuan Pembelajaran / Indikator terlebih dahulu',
         },
       ]
     : [

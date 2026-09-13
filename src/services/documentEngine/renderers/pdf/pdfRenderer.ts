@@ -144,6 +144,16 @@ export class PdfDocumentBuilder {
     academicSetting: AcademicSetting,
     extraRows: [string, string][] = []
   ): void {
+    const isK13Curriculum =
+      academicSetting.curriculumType === 'K13' ||
+      (academicSetting.curriculum &&
+        (academicSetting.curriculum.includes('2013') || academicSetting.curriculum.includes('K13')));
+
+    const classLabel = isK13Curriculum ? 'Tingkat / Kelas' : 'Fase / Kelas';
+    const classValue = isK13Curriculum
+      ? `: ${academicSetting.grade || '-'}`
+      : `: ${academicSetting.phase || '-'} / ${academicSetting.grade || '-'}`;
+
     const rows: [string, string, string, string][] = [
       [
         'Satuan Pendidikan',
@@ -154,8 +164,8 @@ export class PdfDocumentBuilder {
       [
         'NPSN',
         `: ${school.npsn || '-'}`,
-        'Fase / Kelas',
-        `: ${academicSetting.phase || '-'} / ${academicSetting.grade || '-'}`,
+        classLabel,
+        classValue,
       ],
       [
         'Alamat',

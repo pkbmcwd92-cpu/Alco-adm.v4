@@ -626,6 +626,7 @@ export type WorkflowStepId =
   | 'k13-kd'
   | 'k13-indikator'
   | 'k13-tujuan'
+  /** @deprecated legacy compatibility only */
   | 'k13-kkm'
   | 'admin';
 

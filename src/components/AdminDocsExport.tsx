@@ -65,7 +65,7 @@ import {
   ZipExportResult,
 } from '../services/documentEngine';
 import { getCurriculumType } from '../services/curriculumRules';
-import { isK13 as isK13Check } from '../services/curriculumRouter';
+import { isK13 as isK13Check, getCurriculumDocumentTypes } from '../services/curriculumRouter';
 import { SnapshotValidationModal } from './SnapshotValidationModal';
 import { ZipExportModal } from './ZipExportModal';
 
@@ -142,7 +142,13 @@ export const AdminDocsExport: React.FC<AdminDocsExportProps> = ({
   const isTPValid = !!(tp?.items && tp.items.length > 0);
   const isATPValid = !!(atp?.items && atp.items.length > 0);
   const isK13KDValid = !!(k13Analysis?.items && k13Analysis.items.length > 0);
-  const isK13IndikatorValid = !!(k13Analysis?.items && k13Analysis.items.some((i) => i.indikator && i.indikator.trim().length > 0));
+  const isK13IndikatorValid = !!(k13Analysis?.items && k13Analysis.items.some((i) => (i.materi && i.materi.trim().length > 0) || (i.kegiatan && i.kegiatan.trim().length > 0)));
+  const isK13TujuanValid = !!(
+    k13Analysis?.items &&
+    k13Analysis.items.some(
+      (i) => (i.indikator && i.indikator.trim().length > 0) || (i.tujuanPembelajaran && i.tujuanPembelajaran.trim().length > 0)
+    )
+  );
   const isK13KKMValid = !!(k13KKM?.items && k13KKM.items.length > 0);
 
   const totalJP = (atp?.items || []).reduce((acc, curr) => acc + (Number(curr.jp) || 0), 0);
@@ -324,9 +330,10 @@ export const AdminDocsExport: React.FC<AdminDocsExportProps> = ({
     setExportSuccessMessage(null);
 
     const isK13 = getCurriculumType(academicSetting.curriculum || academicSetting.curriculumType) === 'K13';
-    const docTypes: DocumentType[] = isK13
-      ? ['DAFTAR_HADIR', 'DAFTAR_NILAI', 'JURNAL', 'REMEDIAL_PENGAYAAN', 'KALENDER_AKADEMIK', 'ALOKASI_WAKTU', 'PROTA', 'PROMES', 'ANALISIS_SKL_KI_KD', 'PENETAPAN_KKM']
-      : ['DAFTAR_HADIR', 'DAFTAR_NILAI', 'JURNAL', 'ASESMEN', 'REMEDIAL_PENGAYAAN', 'KKTP', 'KALENDER_AKADEMIK', 'ALOKASI_WAKTU', 'PROTA', 'PROMES', 'MODUL_AJAR', 'ATP', 'ANALISIS_CP_TP'];
+    const docTypes: DocumentType[] = getCurriculumDocumentTypes(isK13 ? 'K13' : 'KURIKULUM_MERDEKA', {
+      hasK13KKM: isK13KKMValid,
+      includeKkm: isK13KKMValid,
+    });
     let successCount = 0;
     const newRecords: AppDocumentRecord[] = [...localDocs];
 
@@ -700,7 +707,7 @@ export const AdminDocsExport: React.FC<AdminDocsExportProps> = ({
                     onClick={() => onBackToStep('k13-indikator')}
                     className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 hover:bg-slate-50 cursor-pointer transition"
                   >
-                    <span className="font-semibold text-slate-700">4. Indikator & Materi Pokok</span>
+                    <span className="font-semibold text-slate-700">4. Analisis KD & Materi</span>
                     {isK13IndikatorValid ? (
                       <span className="inline-flex items-center gap-1 text-emerald-700 font-bold">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Terisi
@@ -713,13 +720,13 @@ export const AdminDocsExport: React.FC<AdminDocsExportProps> = ({
                   </div>
 
                   <div
-                    onClick={() => onBackToStep('k13-kkm')}
+                    onClick={() => onBackToStep('k13-tujuan')}
                     className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 hover:bg-slate-50 cursor-pointer transition"
                   >
-                    <span className="font-semibold text-slate-700">5. Penetapan KKM</span>
-                    {isK13KKMValid ? (
+                    <span className="font-semibold text-slate-700">5. Tujuan & Indikator Pencapaian (IPK)</span>
+                    {isK13TujuanValid ? (
                       <span className="inline-flex items-center gap-1 text-emerald-700 font-bold">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> KKM {k13KKM?.kkmSekolah || 75}
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Terisi
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-rose-700 font-bold">
@@ -1096,9 +1103,11 @@ export const AdminDocsExport: React.FC<AdminDocsExportProps> = ({
                       <span className="font-bold">{previewSubject}</span>
                     </div>
                     <div>
-                      <span className="font-semibold text-slate-600">Fase / Kelas:</span>{' '}
+                      <span className="font-semibold text-slate-600">
+                        {isK13Curriculum ? 'Tingkat / Kelas:' : 'Fase / Kelas:'}
+                      </span>{' '}
                       <span className="font-bold">
-                        {previewPhase} / {previewGrade}
+                        {isK13Curriculum ? previewGrade : `${previewPhase} / ${previewGrade}`}
                       </span>
                     </div>
                     <div>

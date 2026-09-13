@@ -180,9 +180,12 @@ export const MERDEKA_EXPORT_DOC_TYPES: DocumentType[] = [
   'REMEDIAL_PENGAYAAN',
 ];
 
-export const K13_EXPORT_DOC_TYPES: DocumentType[] = [
+/**
+ * Standard K13 Export Documents.
+ * PENETAPAN_KKM is optional and not automatically included unless explicitly chosen or legacy KKM is active.
+ */
+export const K13_BASE_EXPORT_DOC_TYPES: DocumentType[] = [
   'ANALISIS_SKL_KI_KD',
-  'PENETAPAN_KKM',
   'KALENDER_AKADEMIK',
   'ALOKASI_WAKTU',
   'PROTA',
@@ -193,8 +196,37 @@ export const K13_EXPORT_DOC_TYPES: DocumentType[] = [
   'REMEDIAL_PENGAYAAN',
 ];
 
-export function getCurriculumDocumentTypes(curriculumType: CurriculumType): DocumentType[] {
-  return curriculumType === 'K13' ? K13_EXPORT_DOC_TYPES : MERDEKA_EXPORT_DOC_TYPES;
+/**
+ * @deprecated Use K13_BASE_EXPORT_DOC_TYPES or getCurriculumDocumentTypes(curriculumType, { includeKkm })
+ */
+export const K13_EXPORT_DOC_TYPES: DocumentType[] = [
+  ...K13_BASE_EXPORT_DOC_TYPES,
+  'PENETAPAN_KKM',
+];
+
+export interface CurriculumDocOptions {
+  includeKkm?: boolean;
+  criteriaMode?: string;
+  hasK13KKM?: boolean;
+}
+
+export function getCurriculumDocumentTypes(
+  curriculumType: CurriculumType,
+  options?: CurriculumDocOptions
+): DocumentType[] {
+  if (curriculumType === 'KURIKULUM_MERDEKA') {
+    return MERDEKA_EXPORT_DOC_TYPES;
+  }
+  const docs = [...K13_BASE_EXPORT_DOC_TYPES];
+  const shouldIncludeKkm =
+    options?.includeKkm === true ||
+    options?.criteriaMode === 'LEGACY_KKM' ||
+    options?.criteriaMode === 'legacy_kkm';
+
+  if (shouldIncludeKkm) {
+    docs.push('PENETAPAN_KKM');
+  }
+  return docs;
 }
 
 /**
@@ -205,6 +237,7 @@ export function isStepAllowed(stepId: WorkflowStepId, curriculumType: Curriculum
   if (curriculumType === 'KURIKULUM_MERDEKA') {
     return ['cp', 'cp-analysis', 'tp', 'atp'].includes(stepId);
   } else {
+    // k13-kkm is allowed only as legacy redirection
     return ['k13-kd', 'k13-indikator', 'k13-tujuan', 'k13-kkm'].includes(stepId);
   }
 }
@@ -214,6 +247,10 @@ export function isStepAllowed(stepId: WorkflowStepId, curriculumType: Curriculum
  */
 export function resolveStep(stepId: WorkflowStepId, curriculumType: CurriculumType): WorkflowStepId {
   if (isStepAllowed(stepId, curriculumType)) {
+    // If user lands on legacy k13-kkm step in K13, resolve directly to admin
+    if (curriculumType === 'K13' && stepId === 'k13-kkm') {
+      return 'admin';
+    }
     return stepId;
   }
   if (curriculumType === 'K13') {
