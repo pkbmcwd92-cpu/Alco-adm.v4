@@ -274,7 +274,7 @@ export const TPManager: React.FC<TPManagerProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <span className="w-6 h-6 rounded-md bg-blue-100 text-blue-800 text-xs font-bold flex items-center justify-center">
-                04
+                05
               </span>
               <h3 className="text-lg font-bold text-slate-900">Perumusan Tujuan Pembelajaran (TP)</h3>
             </div>
@@ -468,7 +468,7 @@ export const TPManager: React.FC<TPManagerProps> = ({
           onClick={handleSaveAndNext}
           className="w-full sm:w-auto flex items-center justify-center gap-2 bg-blue-900 hover:bg-blue-950 text-white py-2.5 px-6 rounded-xl text-sm font-semibold shadow-sm transition cursor-pointer"
         >
-          <span>Simpan & Lanjut ke 05 Penyusunan ATP (Alur Tujuan Pembelajaran)</span>
+          <span>Simpan & Lanjut ke 06 Penyusunan ATP (Alur Tujuan Pembelajaran)</span>
           <ArrowRight className="w-4 h-4" />
         </button>
       </div>

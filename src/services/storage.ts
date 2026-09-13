@@ -27,6 +27,7 @@ import {
   PrincipalHistory,
   CPAnalysisData,
 } from '../types';
+import { getCurriculumTypeFromSetting, isK13, isMerdeka } from './curriculumRouter';
 import {
   INITIAL_PROFILES,
   INITIAL_SCHOOL,
@@ -381,14 +382,24 @@ export function loadAppStorage(): AppStorageState {
       }));
     }
 
-    // Auto-migrate: ensure all academicSettings have derived phases
+    // Auto-migrate: ensure all academicSettings have explicit curriculumType and derived phases
     parsed.academicSettings = parsed.academicSettings.map((setting) => {
       const derived = getPhaseFromGrade(setting.level || 'SD', setting.grade || 'Kelas 1');
-      if (setting.phase !== derived) {
-        needsResave = true;
-        return { ...setting, phase: derived };
+      const curType = getCurriculumTypeFromSetting(setting);
+      let changed = false;
+      const updated = { ...setting };
+      if (setting.curriculumType !== curType) {
+        updated.curriculumType = curType;
+        changed = true;
       }
-      return setting;
+      if (setting.phase !== derived) {
+        updated.phase = derived;
+        changed = true;
+      }
+      if (changed) {
+        needsResave = true;
+      }
+      return updated;
     });
 
     // Ensure activeWorkspaceId is valid
@@ -645,6 +656,8 @@ export function getProfileWorkspace(profileId: string, workspaceId?: string): Pr
 
   // Build the unified single source of truth activeContext
   const context = buildActiveContext(profile, school, academicSetting);
+  const curType = getCurriculumTypeFromSetting(academicSetting);
+  let stateNeedsSave = false;
 
   // Retrieve CP strictly for this workspace's academic setting
   let cp = state.cps.find((c) => c.academicSettingId === academicSetting!.id);
@@ -656,6 +669,10 @@ export function getProfileWorkspace(profileId: string, workspaceId?: string): Pr
       elements: [],
       updatedAt: new Date().toISOString(),
     };
+    if (curType === 'KURIKULUM_MERDEKA') {
+      state.cps.push(cp);
+      stateNeedsSave = true;
+    }
   } else {
     cp = {
       ...cp,
@@ -672,6 +689,10 @@ export function getProfileWorkspace(profileId: string, workspaceId?: string): Pr
       items: [],
       updatedAt: new Date().toISOString(),
     };
+    if (curType === 'KURIKULUM_MERDEKA') {
+      state.tps.push(tp);
+      stateNeedsSave = true;
+    }
   } else {
     tp = {
       ...tp,
@@ -690,11 +711,19 @@ export function getProfileWorkspace(profileId: string, workspaceId?: string): Pr
       totalJP: 0,
       updatedAt: new Date().toISOString(),
     };
+    if (curType === 'KURIKULUM_MERDEKA') {
+      state.atps.push(atp);
+      stateNeedsSave = true;
+    }
   } else {
     atp = {
       ...atp,
       items: Array.isArray(atp.items) ? atp.items : [],
     };
+  }
+
+  if (stateNeedsSave) {
+    saveAppStorage(state);
   }
 
   // Retrieve workspace documents
@@ -748,9 +777,54 @@ export function getProfileWorkspace(profileId: string, workspaceId?: string): Pr
   const remedials = (state.remedialRecords || []).filter((r) => r.academicSettingId === academicSetting!.id);
   const enrichments = (state.enrichmentRecords || []).filter((e) => e.academicSettingId === academicSetting!.id);
 
-  // Retrieve K13 items if exists
-  const k13Analysis = (state.k13Analyses || []).find((k) => k.academicSettingId === academicSetting!.id);
-  const k13KKM = (state.k13KKMs || []).find((k) => k.academicSettingId === academicSetting!.id);
+  // Retrieve K13 items if exists, guarantee for K13 workspace
+  let k13Analysis = (state.k13Analyses || []).find((k) => k.academicSettingId === academicSetting!.id);
+  if (!k13Analysis && curType === 'K13') {
+    k13Analysis = {
+      id: `k13-ana-${academicSetting.id}`,
+      academicSettingId: academicSetting.id,
+      items: [
+        {
+          id: `k13-item-1`,
+          skl: 'Memiliki perilaku yang mencerminkan sikap orang beriman, berakhlak mulia, dan bertanggung jawab.',
+          ki: 'KI-3 (Pengetahuan) & KI-4 (Keterampilan)',
+          kd: '3.1 Memahami konsep dan prinsip dasar pembelajaran.',
+          indikator: '3.1.1 Mengidentifikasi prinsip dan konsep dasar materi pokok.',
+          materi: 'Materi Pokok Pembelajaran Semester Aktif',
+          kegiatan: 'Pendekatan Saintifik (5M: Mengamati, Menanya, Mengumpulkan Informasi, Menalar, Mengomunikasikan)',
+        },
+      ],
+      updatedAt: new Date().toISOString(),
+    };
+    state.k13Analyses = [...(state.k13Analyses || []), k13Analysis];
+    saveAppStorage(state);
+  }
+
+  let k13KKM = (state.k13KKMs || []).find((k) => k.academicSettingId === academicSetting!.id);
+  if (!k13KKM && curType === 'K13') {
+    k13KKM = {
+      id: `k13-kkm-${academicSetting.id}`,
+      academicSettingId: academicSetting.id,
+      kkmMataPelajaran: 75,
+      predikatA: 89,
+      predikatB: 79,
+      predikatC: 70,
+      items: [
+        {
+          id: `kkm-item-1`,
+          kd: '3.1 Memahami konsep dan prinsip dasar pembelajaran',
+          indikator: 'Mengidentifikasi prinsip dan konsep dasar materi pokok',
+          kompleksitas: 75,
+          dayaDukung: 78,
+          intake: 74,
+          kkmIndikator: 76,
+        },
+      ],
+      updatedAt: new Date().toISOString(),
+    };
+    state.k13KKMs = [...(state.k13KKMs || []), k13KKM];
+    saveAppStorage(state);
+  }
 
   // Retrieve CP Analysis if exists
   const cpAnalysis = (state.cpAnalyses || []).find((a) => a.academicSettingId === academicSetting!.id);
@@ -825,11 +899,13 @@ export function createWorkspace(params: {
   const newSettingId = `acad-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   const level = params.setting.level || profile.defaultLevel || 'SD';
   const derivedPhase = getPhaseFromGrade(level, params.setting.grade);
+  const curType = params.setting.curriculum === 'Kurikulum 2013' ? 'K13' : 'KURIKULUM_MERDEKA';
 
   const newSetting: AcademicSetting = {
     id: newSettingId,
     profileId: profile.id,
-    curriculum: params.setting.curriculum || 'Kurikulum Merdeka',
+    curriculum: params.setting.curriculum || (curType === 'K13' ? 'Kurikulum 2013' : 'Kurikulum Merdeka'),
+    curriculumType: curType,
     academicYear: params.setting.academicYear || '2026/2027',
     semester: params.setting.semester || '1 (Ganjil)',
     level,
@@ -854,31 +930,6 @@ export function createWorkspace(params: {
     updatedAt: new Date().toISOString(),
   };
 
-  // Create empty CP, TP, ATP instances for this workspace
-  const newCP: CPData = {
-    id: `cp-${newSettingId}`,
-    academicSettingId: newSettingId,
-    generalDescription: '',
-    elements: [],
-    updatedAt: new Date().toISOString(),
-  };
-
-  const newTP: TPData = {
-    id: `tp-${newSettingId}`,
-    academicSettingId: newSettingId,
-    items: [],
-    updatedAt: new Date().toISOString(),
-  };
-
-  const newATP: ATPData = {
-    id: `atp-${newSettingId}`,
-    academicSettingId: newSettingId,
-    rationale: '',
-    items: [],
-    totalJP: 0,
-    updatedAt: new Date().toISOString(),
-  };
-
   const initialStudents: Student[] = DEFAULT_SAMPLE_STUDENTS.map((s, idx) => ({
     id: `std-${newSettingId}-${idx + 1}`,
     academicSettingId: newSettingId,
@@ -889,10 +940,80 @@ export function createWorkspace(params: {
 
   state.academicSettings.push(newSetting);
   state.workspaces.push(newWorkspace);
-  state.cps.push(newCP);
-  state.tps.push(newTP);
-  state.atps.push(newATP);
   state.students = [...(state.students || []), ...initialStudents];
+
+  if (curType === 'KURIKULUM_MERDEKA') {
+    // Merdeka: Create CP, TP, ATP instances strictly for Merdeka workspace
+    const newCP: CPData = {
+      id: `cp-${newSettingId}`,
+      academicSettingId: newSettingId,
+      generalDescription: '',
+      elements: [],
+      updatedAt: new Date().toISOString(),
+    };
+
+    const newTP: TPData = {
+      id: `tp-${newSettingId}`,
+      academicSettingId: newSettingId,
+      items: [],
+      updatedAt: new Date().toISOString(),
+    };
+
+    const newATP: ATPData = {
+      id: `atp-${newSettingId}`,
+      academicSettingId: newSettingId,
+      rationale: '',
+      items: [],
+      totalJP: 0,
+      updatedAt: new Date().toISOString(),
+    };
+
+    state.cps.push(newCP);
+    state.tps.push(newTP);
+    state.atps.push(newATP);
+  } else {
+    // K13: Create K13Analysis and K13KKM instances. DO NOT create CP/TP/ATP!
+    const newK13Analysis: K13Analysis = {
+      id: `k13-ana-${newSettingId}`,
+      academicSettingId: newSettingId,
+      items: [
+        {
+          id: `k13-item-${Date.now()}-1`,
+          skl: 'Memiliki perilaku yang mencerminkan sikap orang beriman, berakhlak mulia, dan bertanggung jawab.',
+          ki: 'KI-3 (Pengetahuan) & KI-4 (Keterampilan)',
+          kd: '3.1 Memahami konsep dan prinsip dasar pembelajaran.',
+          indikator: '3.1.1 Mengidentifikasi prinsip dan konsep dasar materi pokok.',
+          materi: 'Materi Pokok Pembelajaran Semester Aktif',
+          kegiatan: 'Pendekatan Saintifik (5M: Mengamati, Menanya, Mengumpulkan Informasi, Menalar, Mengomunikasikan)',
+        },
+      ],
+      updatedAt: new Date().toISOString(),
+    };
+
+    const newK13KKM: K13KKM = {
+      id: `k13-kkm-${newSettingId}`,
+      academicSettingId: newSettingId,
+      kkmMataPelajaran: 75,
+      predikatA: 89,
+      predikatB: 79,
+      predikatC: 70,
+      items: [
+        {
+          id: `kkm-item-${Date.now()}-1`,
+          kd: '3.1 Memahami konsep dan prinsip dasar pembelajaran',
+          indikator: 'Mengidentifikasi prinsip dan konsep dasar materi pokok',
+          kompleksitas: 75,
+          dayaDukung: 78,
+          intake: 74,
+          kkmIndikator: 76,
+        },
+      ],
+      updatedAt: new Date().toISOString(),
+    };
+
+    state.k13Analyses = [...(state.k13Analyses || []), newK13Analysis];
+    state.k13KKMs = [...(state.k13KKMs || []), newK13KKM];
+  }
 
   state.activeProfileId = profile.id;
   state.activeWorkspaceId = newWorkspace.id;
@@ -915,11 +1036,13 @@ export function duplicateWorkspace(sourceWorkspaceId: string, newGrade?: string,
   const targetGrade = newGrade || sourceSetting.grade;
   const targetSubject = newSubject || sourceSetting.subject;
   const derivedPhase = getPhaseFromGrade(sourceSetting.level, targetGrade);
+  const curType = getCurriculumTypeFromSetting(sourceSetting);
 
   const newSettingId = `acad-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   const clonedSetting: AcademicSetting = {
     ...sourceSetting,
     id: newSettingId,
+    curriculumType: curType,
     grade: targetGrade,
     phase: derivedPhase,
     subject: targetSubject,
@@ -938,57 +1061,6 @@ export function duplicateWorkspace(sourceWorkspaceId: string, newGrade?: string,
     updatedAt: new Date().toISOString(),
   };
 
-  // Find source CP/TP/ATP and duplicate as draft if available
-  const sourceCP = state.cps.find((c) => c.academicSettingId === sourceSetting.id);
-  const clonedCP: CPData = sourceCP
-    ? {
-        ...sourceCP,
-        id: `cp-${newSettingId}`,
-        academicSettingId: newSettingId,
-        updatedAt: new Date().toISOString(),
-      }
-    : {
-        id: `cp-${newSettingId}`,
-        academicSettingId: newSettingId,
-        generalDescription: '',
-        elements: [],
-        updatedAt: new Date().toISOString(),
-      };
-
-  const sourceTP = state.tps.find((t) => t.academicSettingId === sourceSetting.id);
-  const clonedTP: TPData = sourceTP
-    ? {
-        ...sourceTP,
-        id: `tp-${newSettingId}`,
-        academicSettingId: newSettingId,
-        items: (sourceTP.items || []).map((it, idx) => ({ ...it, id: `tp-${Date.now()}-${idx}` })),
-        updatedAt: new Date().toISOString(),
-      }
-    : {
-        id: `tp-${newSettingId}`,
-        academicSettingId: newSettingId,
-        items: [],
-        updatedAt: new Date().toISOString(),
-      };
-
-  const sourceATP = state.atps.find((a) => a.academicSettingId === sourceSetting.id);
-  const clonedATP: ATPData = sourceATP
-    ? {
-        ...sourceATP,
-        id: `atp-${newSettingId}`,
-        academicSettingId: newSettingId,
-        items: (sourceATP.items || []).map((it, idx) => ({ ...it, id: `atp-item-${Date.now()}-${idx}` })),
-        updatedAt: new Date().toISOString(),
-      }
-    : {
-        id: `atp-${newSettingId}`,
-        academicSettingId: newSettingId,
-        rationale: '',
-        items: [],
-        totalJP: 0,
-        updatedAt: new Date().toISOString(),
-      };
-
   const sourceStudents = (state.students || []).filter((s) => s.academicSettingId === sourceSetting.id);
   const clonedStudents: Student[] = sourceStudents.map((s, idx) => ({
     ...s,
@@ -998,10 +1070,104 @@ export function duplicateWorkspace(sourceWorkspaceId: string, newGrade?: string,
 
   state.academicSettings.push(clonedSetting);
   state.workspaces.push(clonedWs);
-  state.cps.push(clonedCP);
-  state.tps.push(clonedTP);
-  state.atps.push(clonedATP);
   state.students = [...(state.students || []), ...clonedStudents];
+
+  if (curType === 'KURIKULUM_MERDEKA') {
+    // Clone CP, TP, ATP for Merdeka only
+    const sourceCP = state.cps.find((c) => c.academicSettingId === sourceSetting.id);
+    const clonedCP: CPData = sourceCP
+      ? {
+          ...sourceCP,
+          id: `cp-${newSettingId}`,
+          academicSettingId: newSettingId,
+          updatedAt: new Date().toISOString(),
+        }
+      : {
+          id: `cp-${newSettingId}`,
+          academicSettingId: newSettingId,
+          generalDescription: '',
+          elements: [],
+          updatedAt: new Date().toISOString(),
+        };
+
+    const sourceTP = state.tps.find((t) => t.academicSettingId === sourceSetting.id);
+    const clonedTP: TPData = sourceTP
+      ? {
+          ...sourceTP,
+          id: `tp-${newSettingId}`,
+          academicSettingId: newSettingId,
+          items: (sourceTP.items || []).map((it, idx) => ({ ...it, id: `tp-${Date.now()}-${idx}` })),
+          updatedAt: new Date().toISOString(),
+        }
+      : {
+          id: `tp-${newSettingId}`,
+          academicSettingId: newSettingId,
+          items: [],
+          updatedAt: new Date().toISOString(),
+        };
+
+    const sourceATP = state.atps.find((a) => a.academicSettingId === sourceSetting.id);
+    const clonedATP: ATPData = sourceATP
+      ? {
+          ...sourceATP,
+          id: `atp-${newSettingId}`,
+          academicSettingId: newSettingId,
+          items: (sourceATP.items || []).map((it, idx) => ({ ...it, id: `atp-item-${Date.now()}-${idx}` })),
+          updatedAt: new Date().toISOString(),
+        }
+      : {
+          id: `atp-${newSettingId}`,
+          academicSettingId: newSettingId,
+          rationale: '',
+          items: [],
+          totalJP: 0,
+          updatedAt: new Date().toISOString(),
+        };
+
+    state.cps.push(clonedCP);
+    state.tps.push(clonedTP);
+    state.atps.push(clonedATP);
+  } else {
+    // Clone K13 data for K13 only
+    const sourceAnalysis = (state.k13Analyses || []).find((k) => k.academicSettingId === sourceSetting.id);
+    const clonedAnalysis: K13Analysis = sourceAnalysis
+      ? {
+          ...sourceAnalysis,
+          id: `k13-ana-${newSettingId}`,
+          academicSettingId: newSettingId,
+          items: (sourceAnalysis.items || []).map((it, idx) => ({ ...it, id: `k13-item-${Date.now()}-${idx}` })),
+          updatedAt: new Date().toISOString(),
+        }
+      : {
+          id: `k13-ana-${newSettingId}`,
+          academicSettingId: newSettingId,
+          items: [],
+          updatedAt: new Date().toISOString(),
+        };
+
+    const sourceKKM = (state.k13KKMs || []).find((k) => k.academicSettingId === sourceSetting.id);
+    const clonedKKM: K13KKM = sourceKKM
+      ? {
+          ...sourceKKM,
+          id: `k13-kkm-${newSettingId}`,
+          academicSettingId: newSettingId,
+          items: (sourceKKM.items || []).map((it, idx) => ({ ...it, id: `kkm-item-${Date.now()}-${idx}` })),
+          updatedAt: new Date().toISOString(),
+        }
+      : {
+          id: `k13-kkm-${newSettingId}`,
+          academicSettingId: newSettingId,
+          kkmMataPelajaran: 75,
+          predikatA: 89,
+          predikatB: 79,
+          predikatC: 70,
+          items: [],
+          updatedAt: new Date().toISOString(),
+        };
+
+    state.k13Analyses = [...(state.k13Analyses || []), clonedAnalysis];
+    state.k13KKMs = [...(state.k13KKMs || []), clonedKKM];
+  }
 
   state.activeWorkspaceId = clonedWs.id;
   saveAppStorage(state);
@@ -1034,6 +1200,8 @@ export function deleteWorkspace(workspaceId: string): boolean {
   current.cps = current.cps.filter((c) => c.academicSettingId !== targetWs.academicSettingId);
   current.tps = current.tps.filter((t) => t.academicSettingId !== targetWs.academicSettingId);
   current.atps = current.atps.filter((a) => a.academicSettingId !== targetWs.academicSettingId);
+  current.k13Analyses = (current.k13Analyses || []).filter((k) => k.academicSettingId !== targetWs.academicSettingId);
+  current.k13KKMs = (current.k13KKMs || []).filter((k) => k.academicSettingId !== targetWs.academicSettingId);
 
   if (current.activeWorkspaceId === workspaceId) {
     const remaining = current.workspaces.filter((w) => w.profileId === targetWs.profileId);

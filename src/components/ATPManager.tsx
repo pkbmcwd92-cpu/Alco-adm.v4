@@ -259,7 +259,7 @@ export const ATPManager: React.FC<ATPManagerProps> = ({
           className="inline-flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-xs transition"
         >
           <Target className="w-4 h-4" />
-          <span>Kembali ke Tahap 04 TP</span>
+          <span>Kembali ke Tahap TP (05)</span>
         </button>
       </div>
     );
@@ -288,7 +288,7 @@ export const ATPManager: React.FC<ATPManagerProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <span className="w-6 h-6 rounded-md bg-blue-100 text-blue-800 text-xs font-bold flex items-center justify-center">
-                05
+                06
               </span>
               <h3 className="text-lg font-bold text-slate-900">Penyusunan Alur Tujuan Pembelajaran (ATP)</h3>
             </div>
@@ -514,7 +514,7 @@ export const ATPManager: React.FC<ATPManagerProps> = ({
           onClick={handleSaveAndNext}
           className="w-full sm:w-auto flex items-center justify-center gap-2 bg-blue-900 hover:bg-blue-950 text-white py-2.5 px-6 rounded-xl text-sm font-semibold shadow-sm transition cursor-pointer"
         >
-          <span>Simpan & Lanjut ke 06 Ekspor Administrasi (.docx)</span>
+          <span>Simpan & Lanjut ke Administrasi & Ekspor Dokumen (07)</span>
           <ArrowRight className="w-4 h-4" />
         </button>
       </div>

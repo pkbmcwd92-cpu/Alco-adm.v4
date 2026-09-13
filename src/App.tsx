@@ -6,6 +6,7 @@ import {
   SchoolData,
   AcademicSetting,
   CPData,
+  CPAnalysisData,
   TPData,
   ATPData,
   AdministrationWorkspace,
@@ -22,6 +23,7 @@ import {
   setActivePrincipal,
   saveAcademicSetting,
   saveCP,
+  saveCPAnalysis,
   saveTP,
   saveATP,
   saveDocuments,
@@ -47,10 +49,13 @@ import { WorkflowStepper } from './components/WorkflowStepper';
 import { ProfileManager } from './components/ProfileManager';
 import { AcademicSettings } from './components/AcademicSettings';
 import { CPManager } from './components/CPManager';
+import { CPAnalysisManager } from './components/CPAnalysisManager';
 import { TPManager } from './components/TPManager';
 import { ATPManager } from './components/ATPManager';
+import { K13Manager } from './components/administration/K13Manager';
 import { AdministrationHub } from './components/administration/AdministrationHub';
 import { BackupModal } from './components/BackupModal';
+import { isK13 } from './services/curriculumRouter';
 import { Plus, Copy, Trash2, X, FolderPlus } from 'lucide-react';
 import { GRADE_PHASE_MAP, SUBJECT_OPTIONS } from './data/curriculumDefaults';
 
@@ -82,6 +87,7 @@ export function App() {
     school: activeSchool,
     academicSetting: activeAcademicSetting,
     cp: activeCP,
+    cpAnalysis: activeCPAnalysis,
     tp: activeTP,
     atp: activeATP,
     context: activeContext,
@@ -184,6 +190,11 @@ export function App() {
     refreshData();
   };
 
+  const handleSaveCPAnalysis = (analysis: CPAnalysisData) => {
+    saveCPAnalysis(analysis);
+    refreshData();
+  };
+
   const handleSaveTP = (tp: TPData) => {
     saveTP(tp);
     refreshData();
@@ -279,8 +290,11 @@ export function App() {
           workspace={activeWorkspace}
           academicSetting={activeAcademicSetting}
           cp={activeCP}
+          cpAnalysis={activeCPAnalysis}
           tp={activeTP}
           atp={activeATP}
+          k13Analysis={k13Analysis}
+          k13KKM={k13KKM}
         />
 
         {/* Step Views */}
@@ -309,10 +323,11 @@ export function App() {
               profile={activeProfile}
               workspace={activeWorkspace}
               onSaveSetting={handleSaveAcademicSetting}
-              onNextStep={() => setCurrentStep('cp')}
+              onNextStep={() => setCurrentStep(isK13(activeAcademicSetting) ? 'k13-kd' : 'cp')}
             />
           )}
 
+          {/* KURIKULUM MERDEKA STEPS */}
           {currentStep === 'cp' && (
             <CPManager
               cp={activeCP}
@@ -320,7 +335,20 @@ export function App() {
               academicSetting={activeAcademicSetting}
               profile={activeProfile}
               onSaveCP={handleSaveCP}
+              onNextStep={() => setCurrentStep('cp-analysis')}
+            />
+          )}
+
+          {currentStep === 'cp-analysis' && (
+            <CPAnalysisManager
+              cpAnalysis={activeCPAnalysis}
+              cp={activeCP}
+              context={activeContext}
+              academicSetting={activeAcademicSetting}
+              profile={activeProfile}
+              onSaveCPAnalysis={handleSaveCPAnalysis}
               onNextStep={() => setCurrentStep('tp')}
+              onBackToCP={() => setCurrentStep('cp')}
             />
           )}
 
@@ -333,7 +361,7 @@ export function App() {
               profile={activeProfile}
               onSaveTP={handleSaveTP}
               onNextStep={() => setCurrentStep('atp')}
-              onBackToCP={() => setCurrentStep('cp')}
+              onBackToCP={() => setCurrentStep('cp-analysis')}
             />
           )}
 
@@ -351,6 +379,53 @@ export function App() {
             />
           )}
 
+          {/* KURIKULUM 2013 STEPS */}
+          {currentStep === 'k13-kd' && (
+            <K13Manager
+              mode="kd"
+              k13Analysis={k13Analysis}
+              k13KKM={k13KKM}
+              academicSetting={activeAcademicSetting}
+              profile={activeProfile}
+              school={activeSchool}
+              onSaveAnalysis={handleSaveK13Analysis}
+              onSaveKKM={handleSaveK13KKM}
+              onNextStep={() => setCurrentStep('k13-indikator')}
+              onBackToStep={() => setCurrentStep('academic')}
+            />
+          )}
+
+          {currentStep === 'k13-indikator' && (
+            <K13Manager
+              mode="indikator"
+              k13Analysis={k13Analysis}
+              k13KKM={k13KKM}
+              academicSetting={activeAcademicSetting}
+              profile={activeProfile}
+              school={activeSchool}
+              onSaveAnalysis={handleSaveK13Analysis}
+              onSaveKKM={handleSaveK13KKM}
+              onNextStep={() => setCurrentStep('k13-kkm')}
+              onBackToStep={() => setCurrentStep('k13-kd')}
+            />
+          )}
+
+          {currentStep === 'k13-kkm' && (
+            <K13Manager
+              mode="kkm"
+              k13Analysis={k13Analysis}
+              k13KKM={k13KKM}
+              academicSetting={activeAcademicSetting}
+              profile={activeProfile}
+              school={activeSchool}
+              onSaveAnalysis={handleSaveK13Analysis}
+              onSaveKKM={handleSaveK13KKM}
+              onNextStep={() => setCurrentStep('admin')}
+              onBackToStep={() => setCurrentStep('k13-indikator')}
+            />
+          )}
+
+          {/* SHARED ADMINISTRATION & DOCS EXPORT */}
           {currentStep === 'admin' && (
             <AdministrationHub
               profile={activeProfile}

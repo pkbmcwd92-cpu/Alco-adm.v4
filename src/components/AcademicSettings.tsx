@@ -579,7 +579,11 @@ export const AcademicSettings: React.FC<AcademicSettingsProps> = ({
               onClick={handleNextClick}
               className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2.5 rounded-xl text-sm font-semibold shadow-md transition-all cursor-pointer"
             >
-              <span>Lanjut ke Capaian Pembelajaran (CP)</span>
+              <span>
+                {formData.curriculum === 'Kurikulum 2013'
+                  ? 'Lanjut ke SKL / KI / KD (K13)'
+                  : 'Lanjut ke Capaian Pembelajaran (CP)'}
+              </span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -597,7 +601,7 @@ export const AcademicSettings: React.FC<AcademicSettingsProps> = ({
               <div className="space-y-1">
                 <h4 className="text-base font-bold text-slate-900">Simpan Perubahan Pengaturan?</h4>
                 <p className="text-xs text-slate-600">
-                  Anda telah mengubah pengaturan pembelajaran tetapi belum menyimpannya. Apakah Anda ingin menyimpan perubahan sebelum melanjutkan ke tahap CP?
+                  Anda telah mengubah pengaturan pembelajaran tetapi belum menyimpannya. Apakah Anda ingin menyimpan perubahan sebelum melanjutkan ke langkah berikutnya?
                 </p>
               </div>
             </div>

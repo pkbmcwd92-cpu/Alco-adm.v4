@@ -147,6 +147,7 @@ export interface CPAnalysisItem {
   id: string;
   elementId?: string;
   elementName: string;
+  cpText?: string;
   cpCompetence: string; // Kompetensi / KKO dari CP
   materialScope: string; // Lingkup Materi Inti
   meaningfulUnderstanding?: string; // Pemahaman Bermakna / Variasi
@@ -402,7 +403,7 @@ export interface K13AnalysisItem {
   indikator: string;
   materi: string;
   kegiatan: string;
-  penilaian: string;
+  penilaian?: string;
 }
 
 export interface K13Analysis {
@@ -426,7 +427,11 @@ export interface K13KKM {
   id: string;
   academicSettingId: string;
   items: K13KKMItem[];
-  kkmTotal: number;
+  kkmTotal?: number;
+  kkmMataPelajaran?: number;
+  predikatA?: number;
+  predikatB?: number;
+  predikatC?: number;
   updatedAt: string;
 }
 
@@ -555,7 +560,17 @@ export interface AppStorageState {
 }
 
 export type AppDataStore = AppStorageState;
-export type WorkflowStepId = 'profile' | 'academic' | 'cp' | 'tp' | 'atp' | 'admin';
+export type WorkflowStepId =
+  | 'profile'
+  | 'academic'
+  | 'cp'
+  | 'cp-analysis'
+  | 'tp'
+  | 'atp'
+  | 'k13-kd'
+  | 'k13-indikator'
+  | 'k13-kkm'
+  | 'admin';
 
 export interface WorkflowStepInfo {
   id: WorkflowStepId;

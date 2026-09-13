@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BookOpen,
   Calculator,
@@ -8,6 +8,10 @@ import {
   Save,
   CheckCircle2,
   Info,
+  ArrowRight,
+  ArrowLeft,
+  Target,
+  Award,
 } from 'lucide-react';
 import {
   K13Analysis,
@@ -26,8 +30,11 @@ interface K13ManagerProps {
   academicSetting: AcademicSetting;
   k13Analysis?: K13Analysis;
   k13KKM?: K13KKM;
+  mode?: 'kd' | 'indikator' | 'kkm' | 'all';
   onSaveK13Analysis: (analysis: K13Analysis) => void;
   onSaveK13KKM: (kkm: K13KKM) => void;
+  onNextStep?: () => void;
+  onBackToStep?: () => void;
 }
 
 export const K13Manager: React.FC<K13ManagerProps> = ({
@@ -36,10 +43,23 @@ export const K13Manager: React.FC<K13ManagerProps> = ({
   academicSetting,
   k13Analysis,
   k13KKM,
+  mode = 'all',
   onSaveK13Analysis,
   onSaveK13KKM,
+  onNextStep,
+  onBackToStep,
 }) => {
-  const [activeTab, setActiveTab] = useState<'analysis' | 'kkm'>('analysis');
+  const [activeTab, setActiveTab] = useState<'analysis' | 'kkm'>(
+    mode === 'kkm' ? 'kkm' : 'analysis'
+  );
+
+  useEffect(() => {
+    if (mode === 'kkm') {
+      setActiveTab('kkm');
+    } else if (mode === 'kd' || mode === 'indikator') {
+      setActiveTab('analysis');
+    }
+  }, [mode]);
 
   // SKL / KI / KD Analysis
   const [analysisItems, setAnalysisItems] = useState<K13AnalysisItem[]>(
@@ -241,28 +261,30 @@ export const K13Manager: React.FC<K13ManagerProps> = ({
         </div>
       )}
 
-      {/* Curriculum status info */}
-      {!isK13 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3 text-blue-900 text-xs">
-          <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-          <div>
-            <span className="font-bold">Informasi Kurikulum: </span>
-            Saat ini rombel Anda diset menggunakan <strong>{academicSetting.curriculum}</strong>. Modul K13 ini tetap dapat Anda gunakan dan ekspor apabila satuan pendidikan Anda membutuhkan format administrasi Analisis SKL/KI/KD atau penetapan KKM K13.
-          </div>
-        </div>
-      )}
-
       {/* Header Banner */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
           <div>
             <div className="flex items-center gap-2 text-indigo-700 font-semibold text-xs tracking-wider uppercase">
               <BookOpen className="w-4 h-4" />
-              <span>Modul Khusus Kurikulum 2013 (K13)</span>
+              <span>
+                {mode === 'kd' && 'Langkah 03 — Kurikulum 2013 (K13)'}
+                {mode === 'indikator' && 'Langkah 04 — Kurikulum 2013 (K13)'}
+                {mode === 'kkm' && 'Langkah 05 — Kurikulum 2013 (K13)'}
+                {mode === 'all' && 'Kurikulum 2013 (K13)'}
+              </span>
             </div>
-            <h2 className="text-xl font-bold text-slate-900 mt-1">Analisis SKL/KI/KD & Penetapan KKM</h2>
+            <h2 className="text-xl font-bold text-slate-900 mt-1">
+              {mode === 'kd' && 'SKL, Kompetensi Inti (KI) & Kompetensi Dasar (KD)'}
+              {mode === 'indikator' && 'Indikator Pencapaian Kompetensi (IPK) & Materi'}
+              {mode === 'kkm' && 'Penetapan Kriteria Ketuntasan Minimal (KKM)'}
+              {mode === 'all' && 'Analisis SKL/KI/KD & Penetapan KKM'}
+            </h2>
             <p className="text-sm text-slate-500 mt-0.5">
-              Kelola telaah keterkaitan kompetensi dan kriteria ketuntasan minimal ({academicSetting.subject} - {academicSetting.grade})
+              {mode === 'kd' && `Telaah kompetensi dasar dan pemetaan KI (${academicSetting.subject} - ${academicSetting.grade})`}
+              {mode === 'indikator' && `Jabarkan indikator pencapaian dan materi esensial (${academicSetting.subject} - ${academicSetting.grade})`}
+              {mode === 'kkm' && `Hitung KKM dengan indikator kompleksitas, daya dukung, dan intake siswa (${academicSetting.subject} - ${academicSetting.grade})`}
+              {mode === 'all' && `Kelola telaah keterkaitan kompetensi dan kriteria ketuntasan minimal (${academicSetting.subject} - ${academicSetting.grade})`}
             </p>
           </div>
 
@@ -275,7 +297,7 @@ export const K13Manager: React.FC<K13ManagerProps> = ({
               className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-300 transition-colors"
             >
               <FileDown className="w-4 h-4 text-indigo-600" />
-              <span>{isExporting === 'analysis' ? 'Mengekspor...' : 'Ekspor Analisis SKL/KI/KD (.docx)'}</span>
+              <span>{isExporting === 'analysis' ? 'Mengekspor...' : 'Ekspor Analisis (.docx)'}</span>
             </button>
             <button
               id="btn-export-kkm-k13"
@@ -285,36 +307,38 @@ export const K13Manager: React.FC<K13ManagerProps> = ({
               className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-300 transition-colors"
             >
               <FileDown className="w-4 h-4 text-emerald-600" />
-              <span>{isExporting === 'kkm' ? 'Mengekspor...' : 'Ekspor Penetapan KKM (.docx)'}</span>
+              <span>{isExporting === 'kkm' ? 'Mengekspor...' : 'Ekspor KKM (.docx)'}</span>
             </button>
           </div>
         </div>
 
-        {/* Tab switcher */}
-        <div className="flex gap-2 mt-5 border-b border-slate-200">
-          <button
-            type="button"
-            onClick={() => setActiveTab('analysis')}
-            className={`px-4 py-2 text-xs font-bold border-b-2 transition-colors ${
-              activeTab === 'analysis'
-                ? 'border-indigo-600 text-indigo-700'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            Analisis SKL, KI, dan KD ({analysisItems.length} Entri)
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('kkm')}
-            className={`px-4 py-2 text-xs font-bold border-b-2 transition-colors ${
-              activeTab === 'kkm'
-                ? 'border-indigo-600 text-indigo-700'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            Penetapan KKM Satuan Pendidikan (KKM: {totalKKM})
-          </button>
-        </div>
+        {/* Tab switcher (only show if mode is 'all') */}
+        {mode === 'all' && (
+          <div className="flex gap-2 mt-5 border-b border-slate-200">
+            <button
+              type="button"
+              onClick={() => setActiveTab('analysis')}
+              className={`px-4 py-2 text-xs font-bold border-b-2 transition-colors ${
+                activeTab === 'analysis'
+                  ? 'border-indigo-600 text-indigo-700'
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Analisis SKL, KI, dan KD ({analysisItems.length} Entri)
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('kkm')}
+              className={`px-4 py-2 text-xs font-bold border-b-2 transition-colors ${
+                activeTab === 'kkm'
+                  ? 'border-emerald-600 text-emerald-700'
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Penetapan KKM Mapel (KKM: {totalKKM})
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Tab 1: Analysis SKL/KI/KD */}
@@ -581,6 +605,40 @@ export const K13Manager: React.FC<K13ManagerProps> = ({
               </table>
             </div>
           </div>
+        </div>
+      )}
+      {/* Navigation Footer for Step Workflow */}
+      {mode !== 'all' && (
+        <div className="flex items-center justify-between pt-4 border-t border-slate-200">
+          {onBackToStep ? (
+            <button
+              type="button"
+              onClick={onBackToStep}
+              className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>
+                {mode === 'kd' && 'Kembali ke Data Pembelajaran (02)'}
+                {mode === 'indikator' && 'Kembali ke SKL/KI/KD (03)'}
+                {mode === 'kkm' && 'Kembali ke Indikator (04)'}
+              </span>
+            </button>
+          ) : <div />}
+
+          {onNextStep && (
+            <button
+              type="button"
+              onClick={onNextStep}
+              className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-indigo-900 text-white hover:bg-indigo-800 flex items-center gap-2 shadow-sm transition-colors cursor-pointer"
+            >
+              <span>
+                {mode === 'kd' && 'Lanjut ke Indikator (04)'}
+                {mode === 'indikator' && 'Lanjut ke KKM (05)'}
+                {mode === 'kkm' && 'Lanjut ke Administrasi K13 (06)'}
+              </span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          )}
         </div>
       )}
     </div>

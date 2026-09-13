@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CalendarDays,
   Users,
@@ -13,6 +13,7 @@ import {
   Clock,
   CheckCircle2,
 } from 'lucide-react';
+import { isK13 } from '../../services/curriculumRouter';
 import {
   TeacherProfile,
   SchoolData,
@@ -129,15 +130,32 @@ export const AdministrationHub: React.FC<AdministrationHubProps> = ({
   onBackToStep,
   onUpdateDocuments,
 }) => {
-  const [activeTab, setActiveTab] = useState<AdministrationTab>(initialTab);
+  const isK13Active = isK13(academicSetting);
 
-  const tabs = [
+  // If in K13 mode and current activeTab is KKTP, switch to assessment_grades or time_planning
+  // If in Merdeka mode and current activeTab is k13, switch to kktp
+  const [activeTab, setActiveTab] = useState<AdministrationTab>(() => {
+    if (initialTab === 'kktp' && isK13Active) return 'assessment_grades';
+    if (initialTab === 'k13' && !isK13Active) return 'kktp';
+    return initialTab;
+  });
+
+  useEffect(() => {
+    if (isK13Active && activeTab === 'kktp') {
+      setActiveTab('assessment_grades');
+    } else if (!isK13Active && activeTab === 'k13') {
+      setActiveTab('kktp');
+    }
+  }, [isK13Active, activeTab]);
+
+  const allTabs = [
     {
       id: 'time_planning' as AdministrationTab,
       label: 'Perencanaan Waktu',
       sublabel: 'Kalender & Alokasi',
       icon: CalendarDays,
       badge: `${calendar?.effectiveWeeks || 18} Mg`,
+      show: true,
     },
     {
       id: 'attendance' as AdministrationTab,
@@ -145,6 +163,7 @@ export const AdministrationHub: React.FC<AdministrationHubProps> = ({
       sublabel: 'Presensi Siswa',
       icon: Users,
       badge: `${students?.length || 0} Siswa`,
+      show: true,
     },
     {
       id: 'kktp' as AdministrationTab,
@@ -152,13 +171,23 @@ export const AdministrationHub: React.FC<AdministrationHubProps> = ({
       sublabel: 'Kriteria Capaian',
       icon: Award,
       badge: `${assessmentCriteria?.length || tp?.items?.length || 0} TP`,
+      show: !isK13Active, // ONLY show in Kurikulum Merdeka
+    },
+    {
+      id: 'k13' as AdministrationTab,
+      label: 'Ringkasan K13',
+      sublabel: 'SKL/KI/KD & KKM',
+      icon: BookOpen,
+      badge: `${k13Analysis?.items?.length || 0} KD`,
+      show: isK13Active, // ONLY show in K13
     },
     {
       id: 'assessment_grades' as AdministrationTab,
-      label: 'Asesmen & Nilai',
-      sublabel: 'Daftar Nilai Rapor',
+      label: isK13Active ? 'Daftar Nilai K13' : 'Asesmen & Nilai',
+      sublabel: isK13Active ? 'Nilai KD & Rapor' : 'Daftar Nilai Rapor',
       icon: FileSpreadsheet,
       badge: `${assessments?.length || 0} Asm`,
+      show: true,
     },
     {
       id: 'follow_up' as AdministrationTab,
@@ -166,22 +195,19 @@ export const AdministrationHub: React.FC<AdministrationHubProps> = ({
       sublabel: 'Remedial & Pengayaan',
       icon: LifeBuoy,
       badge: `${remedials.length + enrichments.length}`,
-    },
-    {
-      id: 'k13' as AdministrationTab,
-      label: 'Administrasi K13',
-      sublabel: 'SKL/KI/KD & KKM',
-      icon: BookOpen,
-      badge: academicSetting.curriculum === 'Kurikulum 2013' ? 'Aktif' : 'Tersedia',
+      show: true,
     },
     {
       id: 'export_docs' as AdministrationTab,
       label: 'Pusat Dokumen',
-      sublabel: 'Ekspor Seluruh File',
+      sublabel: isK13Active ? 'Ekspor Dokumen K13' : 'Ekspor Seluruh File',
       icon: FileText,
-      badge: '14 Dokumen',
+      badge: isK13Active ? '10 Dokumen' : '14 Dokumen',
+      show: true,
     },
   ];
+
+  const tabs = allTabs.filter((tab) => tab.show);
 
   return (
     <div className="space-y-6" id="administration-hub">
@@ -215,7 +241,11 @@ export const AdministrationHub: React.FC<AdministrationHubProps> = ({
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-slate-400" />
-                  <span>{atp?.items?.reduce((a, b) => a + (Number(b.jp) || 0), 0) || 0} Total JP</span>
+                  <span>
+                    {isK13Active
+                      ? `${k13Analysis?.items?.length || 0} Pasang KD`
+                      : `${atp?.items?.reduce((a, b) => a + (Number(b.jp) || 0), 0) || 0} Total JP`}
+                  </span>
                 </span>
               </div>
             </div>
@@ -224,16 +254,16 @@ export const AdministrationHub: React.FC<AdministrationHubProps> = ({
           <div className="flex items-center gap-2 self-start lg:self-center">
             <button
               type="button"
-              onClick={() => onBackToStep('atp')}
-              className="text-xs text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 transition-colors"
+              onClick={() => onBackToStep(isK13Active ? 'k13-kkm' : 'atp')}
+              className="text-xs text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 transition-colors cursor-pointer"
             >
-              ← Kembali ke Alur ATP
+              {isK13Active ? '← Kembali ke KKM (05)' : '← Kembali ke Alur ATP (06)'}
             </button>
           </div>
         </div>
 
         {/* Tab Navigation Pill Bar */}
-        <div className="mt-6 pt-4 border-t border-slate-800/80 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+        <div className="mt-6 pt-4 border-t border-slate-800/80 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;

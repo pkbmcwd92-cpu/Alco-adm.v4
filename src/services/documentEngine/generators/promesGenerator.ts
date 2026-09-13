@@ -66,57 +66,101 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
     })
   );
 
-  // Top header row: No, Kode TP, Materi/Tujuan, Alokasi JP, followed by 6 month cells
+  // Top header row: No, Kode TP/KD, Materi/Tujuan, Alokasi JP, followed by 6 month cells
+  const isK13Curriculum = academicSetting.curriculumType === 'K13' || academicSetting.curriculum === 'Kurikulum 2013';
   const monthHeaderCells = months.map((m) => createTableHeaderCell(m, 7));
 
   const tableHeaderRow1 = new TableRow({
     tableHeader: true,
     children: [
       createTableHeaderCell('No', 5),
-      createTableHeaderCell('Kode TP', 10),
-      createTableHeaderCell('Tujuan Pembelajaran & Ruang Lingkup Materi', 33, AlignmentType.LEFT),
+      createTableHeaderCell(isK13Curriculum ? 'Kompetensi Dasar (KD)' : 'Kode TP', isK13Curriculum ? 15 : 10),
+      createTableHeaderCell(
+        isK13Curriculum ? 'Indikator & Materi Pembelajaran' : 'Tujuan Pembelajaran & Ruang Lingkup Materi',
+        isK13Curriculum ? 28 : 33,
+        AlignmentType.LEFT
+      ),
       createTableHeaderCell('Alokasi JP', 10),
       ...monthHeaderCells,
     ],
   });
 
-  const items = atp?.items && atp.items.length > 0 ? atp.items : [];
   let totalJp = 0;
+  let dataRows: TableRow[] = [];
 
-  const dataRows = items.map((item, idx) => {
-    const jp = Number(item.jp) || 4;
-    totalJp += jp;
+  if (isK13Curriculum) {
+    const k13Items = context.k13Analysis?.items || [];
+    dataRows = k13Items.map((item, idx) => {
+      const jp = Number(academicSetting.totalHoursPerWeek) || 4;
+      totalJp += jp;
 
-    // Distribute JP across the 6 months in a realistic staggered pattern
-    const targetMonthIdx = idx % 6;
-    const monthDistributionCells = months.map((_, mIdx) => {
-      const isTarget = mIdx === targetMonthIdx;
-      return createTableDataCell(isTarget ? `${jp}` : '-', 7, AlignmentType.CENTER);
+      const targetMonthIdx = idx % 6;
+      const monthDistributionCells = months.map((_, mIdx) => {
+        const isTarget = mIdx === targetMonthIdx;
+        return createTableDataCell(isTarget ? `${jp}` : '-', 7, AlignmentType.CENTER);
+      });
+
+      return new TableRow({
+        children: [
+          createTableDataCell(`${idx + 1}`, 5, AlignmentType.CENTER),
+          createTableDataCell(item.kd, 15, AlignmentType.LEFT, true),
+          new TableCell({
+            width: { size: 28, type: WidthType.PERCENTAGE },
+            margins: { top: 100, bottom: 100, left: 120, right: 120 },
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({ text: item.indikator || item.materi, size: 19, font: 'Arial' }),
+                  item.materi
+                    ? new TextRun({ text: `\nMateri: ${item.materi}`, italics: true, size: 18, color: '475569' })
+                    : new TextRun({ text: '' }),
+                ],
+              }),
+            ],
+          }),
+          createTableDataCell(`${jp} JP`, 10, AlignmentType.CENTER, true),
+          ...monthDistributionCells,
+        ],
+      });
     });
+  } else {
+    const items = atp?.items && atp.items.length > 0 ? atp.items : [];
 
-    return new TableRow({
-      children: [
-        createTableDataCell(`${idx + 1}`, 5, AlignmentType.CENTER),
-        createTableDataCell(item.tpCode || `TP.${idx + 1}`, 10, AlignmentType.CENTER, true),
-        new TableCell({
-          width: { size: 33, type: WidthType.PERCENTAGE },
-          margins: { top: 100, bottom: 100, left: 120, right: 120 },
-          children: [
-            new Paragraph({
-              children: [
-                new TextRun({ text: item.tpStatement, size: 19, font: 'Arial' }),
-                item.materialScope
-                  ? new TextRun({ text: `\nMateri: ${item.materialScope}`, italics: true, size: 18, color: '475569' })
-                  : new TextRun({ text: '' }),
-              ],
-            }),
-          ],
-        }),
-        createTableDataCell(`${jp} JP`, 10, AlignmentType.CENTER, true),
-        ...monthDistributionCells,
-      ],
+    dataRows = items.map((item, idx) => {
+      const jp = Number(item.jp) || 4;
+      totalJp += jp;
+
+      // Distribute JP across the 6 months in a realistic staggered pattern
+      const targetMonthIdx = idx % 6;
+      const monthDistributionCells = months.map((_, mIdx) => {
+        const isTarget = mIdx === targetMonthIdx;
+        return createTableDataCell(isTarget ? `${jp}` : '-', 7, AlignmentType.CENTER);
+      });
+
+      return new TableRow({
+        children: [
+          createTableDataCell(`${idx + 1}`, 5, AlignmentType.CENTER),
+          createTableDataCell(item.tpCode || `TP.${idx + 1}`, 10, AlignmentType.CENTER, true),
+          new TableCell({
+            width: { size: 33, type: WidthType.PERCENTAGE },
+            margins: { top: 100, bottom: 100, left: 120, right: 120 },
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({ text: item.tpStatement, size: 19, font: 'Arial' }),
+                  item.materialScope
+                    ? new TextRun({ text: `\nMateri: ${item.materialScope}`, italics: true, size: 18, color: '475569' })
+                    : new TextRun({ text: '' }),
+                ],
+              }),
+            ],
+          }),
+          createTableDataCell(`${jp} JP`, 10, AlignmentType.CENTER, true),
+          ...monthDistributionCells,
+        ],
+      });
     });
-  });
+  }
 
   // Asesmen Sumatif & Remedial Row
   const evaluasiJp = 4;
@@ -127,7 +171,7 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
 
   const evaluasiRow = new TableRow({
     children: [
-      createTableDataCell(`${items.length + 1}`, 5, AlignmentType.CENTER),
+      createTableDataCell(`${dataRows.length + 1}`, 5, AlignmentType.CENTER),
       createTableDataCell('-', 10, AlignmentType.CENTER),
       createTableDataCell('Asesmen Sumatif Akhir Semester & Tindak Lanjut Remedial/Pengayaan', 33),
       createTableDataCell(`${evaluasiJp} JP`, 10, AlignmentType.CENTER, true),

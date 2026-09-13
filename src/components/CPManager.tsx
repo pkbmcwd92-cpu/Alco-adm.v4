@@ -480,7 +480,7 @@ export const CPManager: React.FC<CPManagerProps> = ({
           onClick={handleSaveAndNext}
           className="w-full sm:w-auto flex items-center justify-center gap-2 bg-blue-900 hover:bg-blue-950 text-white py-2.5 px-6 rounded-xl text-sm font-semibold shadow-sm transition cursor-pointer"
         >
-          <span>Simpan & Lanjut ke 04 Perumusan TP (Tujuan Pembelajaran)</span>
+          <span>Simpan & Lanjut ke Bedah & Analisis CP (04)</span>
           <ArrowRight className="w-4 h-4" />
         </button>
       </div>

@@ -10,8 +10,25 @@ import {
   Lock,
   School,
   FolderTree,
+  Brain,
+  BookOpen,
+  ListChecks,
+  Calculator,
 } from 'lucide-react';
-import { WorkflowStepId, TeacherProfile, SchoolData, AcademicSetting, CPData, TPData, ATPData, AdministrationWorkspace } from '../types';
+import {
+  WorkflowStepId,
+  TeacherProfile,
+  SchoolData,
+  AcademicSetting,
+  CPData,
+  TPData,
+  ATPData,
+  AdministrationWorkspace,
+  CPAnalysisData,
+  K13Analysis,
+  K13KKM,
+} from '../types';
+import { getCurriculumTypeFromSetting, isK13 } from '../services/curriculumRouter';
 
 interface WorkflowStepperProps {
   currentStep: WorkflowStepId;
@@ -21,8 +38,11 @@ interface WorkflowStepperProps {
   workspace?: AdministrationWorkspace;
   academicSetting: AcademicSetting;
   cp: CPData;
+  cpAnalysis?: CPAnalysisData;
   tp: TPData;
   atp: ATPData;
+  k13Analysis?: K13Analysis;
+  k13KKM?: K13KKM;
 }
 
 export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
@@ -33,25 +53,37 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
   workspace,
   academicSetting,
   cp,
+  cpAnalysis,
   tp,
   atp,
+  k13Analysis,
+  k13KKM,
 }) => {
-  // Determine completion state of each step
+  const curriculumType = getCurriculumTypeFromSetting(academicSetting);
+  const isK13Active = isK13(academicSetting);
+
+  // Common steps completion
   const isProfileComplete = !!(profile?.name && profile.name.trim().length > 0);
   const isAcademicComplete = !!(academicSetting?.subject && academicSetting?.grade);
+
+  // Merdeka steps completion & gating
   const isCPComplete = !!(
     (cp?.generalDescription && cp.generalDescription.trim().length > 10) ||
     (cp?.elements && cp.elements.length > 0)
   );
+  const isCPAnalysisComplete = !!(cpAnalysis?.items && cpAnalysis.items.length > 0);
   const isTPComplete = !!(tp?.items && tp.items.length > 0);
   const isATPComplete = !!(atp?.items && atp.items.length > 0);
 
-  // Gating requirements
-  const canAccessTP = isCPComplete;
-  const canAccessATP = isTPComplete;
-  const canAccessAdmin = isATPComplete;
+  // K13 steps completion & gating
+  const hasK13KD = !!(k13Analysis?.items && k13Analysis.items.length > 0);
+  const hasK13Indikator = !!(
+    k13Analysis?.items && k13Analysis.items.some((i) => i.indikator && i.indikator.trim().length > 0)
+  );
+  const hasK13KKM = !!(k13KKM?.items && k13KKM.items.length > 0);
 
-  const steps: {
+  // Build steps list depending on curriculum
+  type StepItem = {
     id: WorkflowStepId;
     num: string;
     title: string;
@@ -60,65 +92,137 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
     isComplete: boolean;
     isLocked: boolean;
     lockReason?: string;
-  }[] = [
-    {
-      id: 'profile',
-      num: '01',
-      title: 'PROFIL',
-      sub: 'Guru & Sekolah',
-      icon: <User className="w-4 h-4" />,
-      isComplete: isProfileComplete,
-      isLocked: false,
-    },
-    {
-      id: 'academic',
-      num: '02',
-      title: 'DATA PEMBELAJARAN',
-      sub: 'Kelas, Fase, Mapel',
-      icon: <SlidersHorizontal className="w-4 h-4" />,
-      isComplete: isAcademicComplete,
-      isLocked: false,
-    },
-    {
-      id: 'cp',
-      num: '03',
-      title: 'CP',
-      sub: 'Capaian Pembelajaran',
-      icon: <FileSpreadsheet className="w-4 h-4" />,
-      isComplete: isCPComplete,
-      isLocked: false,
-    },
-    {
-      id: 'tp',
-      num: '04',
-      title: 'TP',
-      sub: 'Tujuan Pembelajaran',
-      icon: <Target className="w-4 h-4" />,
-      isComplete: isTPComplete,
-      isLocked: !canAccessTP,
-      lockReason: 'Memerlukan data CP terlebih dahulu',
-    },
-    {
-      id: 'atp',
-      num: '05',
-      title: 'ATP',
-      sub: 'Alur Tujuan Pembelajaran',
-      icon: <GitMerge className="w-4 h-4" />,
-      isComplete: isATPComplete,
-      isLocked: !canAccessATP,
-      lockReason: 'Memerlukan daftar TP terlebih dahulu',
-    },
-    {
-      id: 'admin',
-      num: '06',
-      title: 'ADMINISTRASI',
-      sub: 'Perencanaan, Asesmen & Dokumen',
-      icon: <FileCheck2 className="w-4 h-4" />,
-      isComplete: isATPComplete,
-      isLocked: !canAccessAdmin,
-      lockReason: 'Memerlukan susunan ATP terlebih dahulu',
-    },
-  ];
+  };
+
+  const steps: StepItem[] = isK13Active
+    ? [
+        {
+          id: 'profile',
+          num: '01',
+          title: 'PROFIL',
+          sub: 'Guru & Sekolah',
+          icon: <User className="w-4 h-4" />,
+          isComplete: isProfileComplete,
+          isLocked: false,
+        },
+        {
+          id: 'academic',
+          num: '02',
+          title: 'DATA PEMBELAJARAN',
+          sub: 'Kelas, Mapel & JP',
+          icon: <SlidersHorizontal className="w-4 h-4" />,
+          isComplete: isAcademicComplete,
+          isLocked: false,
+        },
+        {
+          id: 'k13-kd',
+          num: '03',
+          title: 'SKL / KI / KD',
+          sub: 'Kompetensi Dasar',
+          icon: <BookOpen className="w-4 h-4" />,
+          isComplete: hasK13KD,
+          isLocked: false,
+        },
+        {
+          id: 'k13-indikator',
+          num: '04',
+          title: 'INDIKATOR',
+          sub: 'IPK & Materi Pokok',
+          icon: <ListChecks className="w-4 h-4" />,
+          isComplete: hasK13Indikator,
+          isLocked: !hasK13KD,
+          lockReason: 'Memerlukan data SKL / KI / KD terlebih dahulu',
+        },
+        {
+          id: 'k13-kkm',
+          num: '05',
+          title: 'KKM',
+          sub: 'Kriteria Ketuntasan',
+          icon: <Calculator className="w-4 h-4" />,
+          isComplete: hasK13KKM,
+          isLocked: !hasK13KD,
+          lockReason: 'Memerlukan data KD terlebih dahulu',
+        },
+        {
+          id: 'admin',
+          num: '06',
+          title: 'ADMINISTRASI',
+          sub: 'Perencanaan & Nilai',
+          icon: <FileCheck2 className="w-4 h-4" />,
+          isComplete: hasK13KKM,
+          isLocked: !hasK13KD,
+          lockReason: 'Memerlukan data Analisis K13 terlebih dahulu',
+        },
+      ]
+    : [
+        {
+          id: 'profile',
+          num: '01',
+          title: 'PROFIL',
+          sub: 'Guru & Sekolah',
+          icon: <User className="w-4 h-4" />,
+          isComplete: isProfileComplete,
+          isLocked: false,
+        },
+        {
+          id: 'academic',
+          num: '02',
+          title: 'DATA PEMBELAJARAN',
+          sub: 'Kelas, Fase, Mapel',
+          icon: <SlidersHorizontal className="w-4 h-4" />,
+          isComplete: isAcademicComplete,
+          isLocked: false,
+        },
+        {
+          id: 'cp',
+          num: '03',
+          title: 'CP',
+          sub: 'Capaian Pembelajaran',
+          icon: <FileSpreadsheet className="w-4 h-4" />,
+          isComplete: isCPComplete,
+          isLocked: false,
+        },
+        {
+          id: 'cp-analysis',
+          num: '04',
+          title: 'ANALISIS CP',
+          sub: 'Bedah Kompetensi',
+          icon: <Brain className="w-4 h-4" />,
+          isComplete: isCPAnalysisComplete,
+          isLocked: !isCPComplete,
+          lockReason: 'Memerlukan data CP terlebih dahulu',
+        },
+        {
+          id: 'tp',
+          num: '05',
+          title: 'TP',
+          sub: 'Tujuan Pembelajaran',
+          icon: <Target className="w-4 h-4" />,
+          isComplete: isTPComplete,
+          isLocked: !isCPComplete,
+          lockReason: 'Memerlukan data CP terlebih dahulu',
+        },
+        {
+          id: 'atp',
+          num: '06',
+          title: 'ATP',
+          sub: 'Alur Tujuan & JP',
+          icon: <GitMerge className="w-4 h-4" />,
+          isComplete: isATPComplete,
+          isLocked: !isTPComplete,
+          lockReason: 'Memerlukan daftar TP terlebih dahulu',
+        },
+        {
+          id: 'admin',
+          num: '07',
+          title: 'ADMINISTRASI',
+          sub: 'Asesmen & Dokumen',
+          icon: <FileCheck2 className="w-4 h-4" />,
+          isComplete: isATPComplete,
+          isLocked: !isATPComplete,
+          lockReason: 'Memerlukan susunan ATP terlebih dahulu',
+        },
+      ];
 
   return (
     <div className="space-y-4">
@@ -186,9 +290,9 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
         </div>
       </div>
 
-      {/* 6-Step Workflow Navigation Bar */}
+      {/* Workflow Navigation Bar */}
       <nav aria-label="Alur Kerja Administrasi" className="bg-white rounded-2xl p-2 sm:p-3 border border-slate-200/80 shadow-xs">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+        <div className={`grid grid-cols-2 md:grid-cols-3 ${isK13Active ? 'lg:grid-cols-6' : 'lg:grid-cols-7'} gap-2`}>
           {steps.map((step) => {
             const isActive = currentStep === step.id;
 

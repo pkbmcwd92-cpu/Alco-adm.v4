@@ -90,10 +90,12 @@ export function buildActiveContext(
   setting: AcademicSetting
 ): ActiveContext {
   const derivedPhase = getPhaseFromGrade(setting.level || profile.defaultLevel || 'SD', setting.grade || 'Kelas 4');
+  const curType = setting.curriculumType || (setting.curriculum === 'Kurikulum 2013' ? 'K13' : 'KURIKULUM_MERDEKA');
   return {
     profileId: profile.id,
     schoolId: school.id || profile.schoolId,
     curriculum: setting.curriculum || 'Kurikulum Merdeka',
+    curriculumType: curType,
     academicYear: setting.academicYear || '2025/2026',
     semester: setting.semester || '1 (Ganjil)',
     level: setting.level || profile.defaultLevel || 'SD',
@@ -426,6 +428,7 @@ export const INITIAL_ACADEMIC_SETTINGS: AcademicSetting[] = [
     id: 'acad-prof-1',
     profileId: 'prof-1',
     curriculum: 'Kurikulum Merdeka',
+    curriculumType: 'KURIKULUM_MERDEKA',
     academicYear: '2026/2027',
     semester: '1 (Ganjil)',
     level: 'SD',
@@ -439,6 +442,7 @@ export const INITIAL_ACADEMIC_SETTINGS: AcademicSetting[] = [
     id: 'acad-prof-2',
     profileId: 'prof-2',
     curriculum: 'Kurikulum Merdeka',
+    curriculumType: 'KURIKULUM_MERDEKA',
     academicYear: '2025/2026',
     semester: '1 (Ganjil)',
     level: 'SD',
@@ -452,6 +456,7 @@ export const INITIAL_ACADEMIC_SETTINGS: AcademicSetting[] = [
     id: 'acad-prof-3',
     profileId: 'prof-3',
     curriculum: 'Kurikulum Merdeka',
+    curriculumType: 'KURIKULUM_MERDEKA',
     academicYear: '2025/2026',
     semester: '1 (Ganjil)',
     level: 'SD',

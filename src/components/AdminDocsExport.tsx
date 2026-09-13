@@ -47,6 +47,7 @@ import {
   K13KKM,
   DocumentSnapshot,
   DocumentMode,
+  WorkflowStepId,
 } from '../types';
 import {
   DOCUMENT_CATALOG,
@@ -64,6 +65,7 @@ import {
   ZipExportResult,
 } from '../services/documentEngine';
 import { getCurriculumType } from '../services/curriculumRules';
+import { isK13 as isK13Check } from '../services/curriculumRouter';
 import { SnapshotValidationModal } from './SnapshotValidationModal';
 import { ZipExportModal } from './ZipExportModal';
 
@@ -89,7 +91,7 @@ interface AdminDocsExportProps {
   enrichments?: EnrichmentRecord[];
   k13Analysis?: K13Analysis;
   k13KKM?: K13KKM;
-  onBackToStep: (stepId: 'profile' | 'academic' | 'cp' | 'tp' | 'atp') => void;
+  onBackToStep: (stepId: WorkflowStepId) => void;
   onUpdateDocuments?: (updatedDocs: AppDocumentRecord[]) => void;
 }
 
@@ -118,7 +120,10 @@ export const AdminDocsExport: React.FC<AdminDocsExportProps> = ({
   onBackToStep,
   onUpdateDocuments,
 }) => {
-  const [activePreviewType, setActivePreviewType] = useState<DocumentType>('ANALISIS_CP_TP');
+  const isK13Curriculum = isK13Check(academicSetting);
+  const [activePreviewType, setActivePreviewType] = useState<DocumentType>(() =>
+    isK13Curriculum ? 'ANALISIS_SKL_KI_KD' : 'ANALISIS_CP_TP'
+  );
   const [generatingDocType, setGeneratingDocType] = useState<string | null>(null);
   const [isExportingAll, setIsExportingAll] = useState(false);
   const [isExportingZip, setIsExportingZip] = useState(false);
@@ -136,6 +141,9 @@ export const AdminDocsExport: React.FC<AdminDocsExportProps> = ({
   const isCPValid = !!((cp?.generalDescription && cp.generalDescription.trim().length > 0) || (cp?.elements && cp.elements.length > 0));
   const isTPValid = !!(tp?.items && tp.items.length > 0);
   const isATPValid = !!(atp?.items && atp.items.length > 0);
+  const isK13KDValid = !!(k13Analysis?.items && k13Analysis.items.length > 0);
+  const isK13IndikatorValid = !!(k13Analysis?.items && k13Analysis.items.some((i) => i.indikator && i.indikator.trim().length > 0));
+  const isK13KKMValid = !!(k13KKM?.items && k13KKM.items.length > 0);
 
   const totalJP = (atp?.items || []).reduce((acc, curr) => acc + (Number(curr.jp) || 0), 0);
 
@@ -670,53 +678,107 @@ export const AdminDocsExport: React.FC<AdminDocsExportProps> = ({
                 )}
               </div>
 
-              <div
-                onClick={() => onBackToStep('cp')}
-                className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 hover:bg-slate-50 cursor-pointer transition"
-              >
-                <span className="font-semibold text-slate-700">3. Capaian Pembelajaran (CP)</span>
-                {isCPValid ? (
-                  <span className="inline-flex items-center gap-1 text-emerald-700 font-bold">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> {cp?.elements?.length || 1} Elemen
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 text-rose-700 font-bold">
-                    <AlertCircle className="w-3.5 h-3.5 text-rose-600" /> Kosong
-                  </span>
-                )}
-              </div>
+              {isK13Curriculum ? (
+                <>
+                  <div
+                    onClick={() => onBackToStep('k13-kd')}
+                    className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 hover:bg-slate-50 cursor-pointer transition"
+                  >
+                    <span className="font-semibold text-slate-700">3. SKL / KI / KD</span>
+                    {isK13KDValid ? (
+                      <span className="inline-flex items-center gap-1 text-emerald-700 font-bold">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> {k13Analysis?.items?.length || 0} KD
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-rose-700 font-bold">
+                        <AlertCircle className="w-3.5 h-3.5 text-rose-600" /> Kosong
+                      </span>
+                    )}
+                  </div>
 
-              <div
-                onClick={() => onBackToStep('tp')}
-                className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 hover:bg-slate-50 cursor-pointer transition"
-              >
-                <span className="font-semibold text-slate-700">4. Tujuan Pembelajaran (TP)</span>
-                {isTPValid ? (
-                  <span className="inline-flex items-center gap-1 text-emerald-700 font-bold">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> {tp?.items?.length || 0} Butir TP
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 text-rose-700 font-bold">
-                    <AlertCircle className="w-3.5 h-3.5 text-rose-600" /> Kosong
-                  </span>
-                )}
-              </div>
+                  <div
+                    onClick={() => onBackToStep('k13-indikator')}
+                    className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 hover:bg-slate-50 cursor-pointer transition"
+                  >
+                    <span className="font-semibold text-slate-700">4. Indikator & Materi Pokok</span>
+                    {isK13IndikatorValid ? (
+                      <span className="inline-flex items-center gap-1 text-emerald-700 font-bold">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Terisi
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-amber-700 font-bold">
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-600" /> Belum Lengkap
+                      </span>
+                    )}
+                  </div>
 
-              <div
-                onClick={() => onBackToStep('atp')}
-                className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 hover:bg-slate-50 cursor-pointer transition"
-              >
-                <span className="font-semibold text-slate-700">5. Alur Pembelajaran (ATP)</span>
-                {isATPValid ? (
-                  <span className="inline-flex items-center gap-1 text-emerald-700 font-bold">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> {atp?.items?.length || 0} Unit ({totalJP} JP)
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 text-rose-700 font-bold">
-                    <AlertCircle className="w-3.5 h-3.5 text-rose-600" /> Kosong
-                  </span>
-                )}
-              </div>
+                  <div
+                    onClick={() => onBackToStep('k13-kkm')}
+                    className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 hover:bg-slate-50 cursor-pointer transition"
+                  >
+                    <span className="font-semibold text-slate-700">5. Penetapan KKM</span>
+                    {isK13KKMValid ? (
+                      <span className="inline-flex items-center gap-1 text-emerald-700 font-bold">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> KKM {k13KKM?.kkmSekolah || 75}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-rose-700 font-bold">
+                        <AlertCircle className="w-3.5 h-3.5 text-rose-600" /> Kosong
+                      </span>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div
+                    onClick={() => onBackToStep('cp')}
+                    className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 hover:bg-slate-50 cursor-pointer transition"
+                  >
+                    <span className="font-semibold text-slate-700">3. Capaian Pembelajaran (CP)</span>
+                    {isCPValid ? (
+                      <span className="inline-flex items-center gap-1 text-emerald-700 font-bold">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> {cp?.elements?.length || 1} Elemen
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-rose-700 font-bold">
+                        <AlertCircle className="w-3.5 h-3.5 text-rose-600" /> Kosong
+                      </span>
+                    )}
+                  </div>
+
+                  <div
+                    onClick={() => onBackToStep('tp')}
+                    className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 hover:bg-slate-50 cursor-pointer transition"
+                  >
+                    <span className="font-semibold text-slate-700">4. Tujuan Pembelajaran (TP)</span>
+                    {isTPValid ? (
+                      <span className="inline-flex items-center gap-1 text-emerald-700 font-bold">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> {tp?.items?.length || 0} Butir TP
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-rose-700 font-bold">
+                        <AlertCircle className="w-3.5 h-3.5 text-rose-600" /> Kosong
+                      </span>
+                    )}
+                  </div>
+
+                  <div
+                    onClick={() => onBackToStep('atp')}
+                    className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 hover:bg-slate-50 cursor-pointer transition"
+                  >
+                    <span className="font-semibold text-slate-700">5. Alur Pembelajaran (ATP)</span>
+                    {isATPValid ? (
+                      <span className="inline-flex items-center gap-1 text-emerald-700 font-bold">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> {atp?.items?.length || 0} Unit ({totalJP} JP)
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-rose-700 font-bold">
+                        <AlertCircle className="w-3.5 h-3.5 text-rose-600" /> Kosong
+                      </span>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -725,7 +787,9 @@ export const AdminDocsExport: React.FC<AdminDocsExportProps> = ({
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                 <Layers className="w-4 h-4 text-blue-600" />
-                <span>Katalog Dokumen Administrasi ({DOCUMENT_CATALOG.length})</span>
+                <span>
+                  Katalog Dokumen Administrasi ({DOCUMENT_CATALOG.filter((c) => isK13Curriculum ? !['ANALISIS_CP_TP', 'ATP', 'MODUL_AJAR', 'KKTP', 'ASESMEN'].includes(c.type) : !['ANALISIS_SKL_KI_KD', 'PENETAPAN_KKM'].includes(c.type)).length})
+                </span>
               </h4>
               <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
                 Format Resmi .docx
@@ -736,7 +800,7 @@ export const AdminDocsExport: React.FC<AdminDocsExportProps> = ({
               {catalogCategories.map((category) => {
                 const itemsInCategory = DOCUMENT_CATALOG.filter((c) => {
                   if (c.category !== category.key) return false;
-                  if (isK13) {
+                  if (isK13Curriculum) {
                     return !['ANALISIS_CP_TP', 'ATP', 'MODUL_AJAR', 'KKTP', 'ASESMEN'].includes(c.type);
                   } else {
                     return !['ANALISIS_SKL_KI_KD', 'PENETAPAN_KKM'].includes(c.type);
