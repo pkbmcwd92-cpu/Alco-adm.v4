@@ -1,0 +1,559 @@
+export type CurriculumType = 'KURIKULUM_MERDEKA' | 'K13';
+export type DocumentMode = 'data' | 'blank';
+
+export * from './jpEngine';
+
+export interface TeacherProfile {
+  id: string;
+  name: string;
+  nip: string;
+  nuptk?: string;
+  status: 'PNS' | 'PPPK' | 'Guru Tetap Yayasan (GTY)' | 'Guru Tidak Tetap (GTT) / Honorer' | 'Lainnya';
+  defaultSubject: string;
+  defaultLevel: 'SD' | 'SMP' | 'SMA' | 'SMK';
+  schoolId?: string; // ID of the primary school (1 Profil Guru = 1 Sekolah Utama)
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TeacherSchoolAssignment {
+  id: string;
+  teacherId: string;
+  schoolId: string;
+  status?: 'active' | 'inactive' | 'archived';
+  startDate?: string;
+  endDate?: string;
+  role?: string; // e.g. "Guru Kelas", "Guru Mapel", etc.
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type SchoolVerificationStatus = 'verified' | 'unverified' | 'unknown' | 'local_reference';
+
+export interface SchoolData {
+  id: string;
+  name: string;
+  npsn: string;
+  address: string;
+  village: string; // Desa/Kelurahan
+  district: string; // Kecamatan
+  regency: string; // Kabupaten/Kota
+  province: string;
+  principalName: string;
+  principalNip: string;
+  lastVerifiedAt?: string;
+  principalSource?: string;
+  principalSourceUrl?: string;
+  verificationStatus?: SchoolVerificationStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PrincipalHistory {
+  id: string;
+  schoolId: string;
+  name: string;
+  nip: string;
+  startDate: string;
+  endDate?: string;
+  source?: string;
+  sourceUrl?: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface AdministrationWorkspace {
+  id: string;
+  profileId: string;
+  schoolId: string;
+  academicSettingId: string;
+  name: string; // e.g. "PJOK — Kelas 1 — Semester 1 — 2026/2027"
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AcademicSetting {
+  id: string;
+  profileId: string;
+  curriculum: string; // e.g. "Kurikulum Merdeka" or "Kurikulum 2013"
+  curriculumType?: CurriculumType;
+  academicYear: string; // e.g. "2025/2026"
+  semester: '1 (Ganjil)' | '2 (Genap)';
+  level: 'SD' | 'SMP' | 'SMA' | 'SMK';
+  grade: string; // e.g. "Kelas 4"
+  phase: string; // e.g. "Fase B" (derived from grade)
+  subject: string; // e.g. "Bahasa Indonesia"
+  totalHoursPerWeek?: number; // e.g. 4 JP / minggu
+  isHoursOverridden?: boolean;
+  regulationReference?: string;
+  updatedAt: string;
+}
+
+/**
+ * Single source of truth for the active working context
+ * used across all downstream steps (CP, TP, ATP, AdminDocs, AI prompts).
+ */
+export interface ActiveContext {
+  profileId: string;
+  schoolId: string;
+  curriculum: string;
+  curriculumType?: CurriculumType;
+  academicYear: string;
+  semester: '1 (Ganjil)' | '2 (Genap)' | string;
+  level: 'SD' | 'SMP' | 'SMA' | 'SMK' | string;
+  grade: string;
+  phase: string;
+  subject: string;
+  totalHoursPerWeek?: number;
+  isHoursOverridden?: boolean;
+  regulationReference?: string;
+}
+
+export type CPVerificationStatus = 'verified' | 'unverified' | 'local_reference';
+
+export interface CPSource {
+  title: string;
+  institution: string;
+  documentYear?: string;
+  url?: string;
+  page?: string;
+  retrievedAt: string;
+  verificationStatus: CPVerificationStatus;
+}
+
+export interface CPElem {
+  id: string;
+  name: string; // e.g. "Menyimak", "Membaca dan Memirsa", "Berbicara dan Mempresentasikan", "Menulis"
+  content: string;
+}
+
+export interface CPData {
+  id: string;
+  academicSettingId: string;
+  generalDescription: string;
+  elements: CPElem[];
+  source?: CPSource;
+  aiNotes?: string;
+  lastEditedAt?: string;
+  updatedAt: string;
+}
+
+export interface CPAnalysisItem {
+  id: string;
+  elementId?: string;
+  elementName: string;
+  cpCompetence: string; // Kompetensi / KKO dari CP
+  materialScope: string; // Lingkup Materi Inti
+  meaningfulUnderstanding?: string; // Pemahaman Bermakna / Variasi
+  suggestedTp?: string; // Rumusan Awal TP
+  order: number;
+}
+
+export interface CPAnalysisData {
+  id: string;
+  academicSettingId: string;
+  cpId?: string;
+  generalSummary?: string;
+  items: CPAnalysisItem[];
+  basedOnCpUpdatedAt?: string;
+  updatedAt: string;
+}
+
+export interface TPItem {
+  id: string;
+  code: string; // e.g. "TP 1.1", "TP 4.1"
+  elementName?: string;
+  statement: string; // Pernyataan Tujuan Pembelajaran
+  competence: string; // Kompetensi / KKO yang dituju (misal: "Menganalisis", "Menjelaskan")
+  contentScope: string; // Lingkup Materi / Konsep Inti
+  p3Dimensions: string[]; // Dimensi Profil Pelajar Pancasila
+  order: number;
+}
+
+export interface TPData {
+  id: string;
+  academicSettingId: string;
+  items: TPItem[];
+  basedOnCpUpdatedAt?: string;
+  basedOnAnalysisUpdatedAt?: string;
+  updatedAt: string;
+}
+
+export interface ATPItem {
+  id: string;
+  stepNumber: number; // Urutan Alur Pembelajaran (1, 2, 3...)
+  tpId?: string;
+  tpCode: string;
+  tpStatement: string;
+  materialScope: string; // Lingkup Materi
+  jp: number; // Alokasi Jam Pelajaran (misal 6 JP)
+  p3Dimensions: string[]; // Profil Pelajar Pancasila
+  assessmentPlan: string; // Asesmen Awal, Formatif, Sumatif
+  glossary: string; // Kata Kunci / Glosarium
+  resources?: string; // Sumber Belajar / Media
+}
+
+export interface ATPData {
+  id: string;
+  academicSettingId: string;
+  rationale?: string; // Rasionalisasi Alur Pembelajaran
+  items: ATPItem[];
+  totalJP: number;
+  basedOnTpUpdatedAt?: string;
+  updatedAt: string;
+}
+
+export type DocumentType =
+  | 'CP'
+  | 'ANALISIS_CP_TP'
+  | 'TP'
+  | 'ATP'
+  | 'PROTA'
+  | 'PROMES'
+  | 'MODUL_AJAR'
+  | 'ASESMEN'
+  | 'JURNAL'
+  | 'KALENDER_AKADEMIK'
+  | 'HARI_EFEKTIF'
+  | 'ALOKASI_WAKTU'
+  | 'DAFTAR_HADIR'
+  | 'KKTP'
+  | 'DAFTAR_NILAI'
+  | 'REMEDIAL_PENGAYAAN'
+  | 'ANALISIS_SKL_KI_KD'
+  | 'PENETAPAN_KKM';
+
+// ==========================================
+// SISWA (STUDENT DATA MODEL)
+// ==========================================
+export interface Student {
+  id: string;
+  academicSettingId: string;
+  nisn?: string;
+  name: string;
+  gender?: 'L' | 'P';
+  notes?: string;
+}
+
+// ==========================================
+// MODUL A: PERENCANAAN WAKTU
+// ==========================================
+export interface AcademicCalendar {
+  id: string;
+  academicSettingId: string;
+  academicYear: string;
+  semester: string;
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+  schoolDaysPerWeek: number; // 5 atau 6 hari sekolah per minggu
+  jpPerWeek: number;
+  notes?: string;
+  updatedAt: string;
+}
+
+export type CalendarDayStatus = 'effective' | 'holiday' | 'schoolEvent' | 'weekend' | 'other';
+
+export interface CalendarDay {
+  id: string;
+  academicCalendarId: string;
+  date: string; // YYYY-MM-DD
+  status: CalendarDayStatus;
+  notes?: string;
+}
+
+export interface TimeAllocation {
+  id: string;
+  academicSettingId: string;
+  tpId?: string;
+  atpItemId?: string;
+  weekNumber?: number;
+  monthName?: string;
+  jp: number;
+  notes?: string;
+}
+
+// ==========================================
+// MODUL B: PELAKSANAAN & ASESMEN
+// ==========================================
+export interface AttendanceSession {
+  id: string;
+  academicSettingId: string;
+  date: string; // YYYY-MM-DD
+  meetingNumber: number;
+  topic?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export type AttendanceStatus = 'H' | 'S' | 'I' | 'A' | 'D'; // Hadir, Sakit, Izin, Alpa, Dispensasi
+
+export interface AttendanceRecord {
+  id: string;
+  sessionId: string;
+  studentId: string;
+  status: AttendanceStatus;
+  note?: string;
+}
+
+export type KKTPApproach = 'deskripsi' | 'rubrik' | 'skala_interval';
+
+export interface KKTPLevel {
+  level: string; // "Perlu Bimbingan", "Cukup", "Baik", "Sangat Baik"
+  label: string;
+  description: string;
+  scoreRange?: string; // "0 - 65", "66 - 75", "76 - 85", "86 - 100"
+}
+
+export interface AssessmentCriterion {
+  id: string;
+  academicSettingId: string;
+  tpId: string; // Terhubung langsung ke TP
+  description: string;
+  approach: KKTPApproach;
+  indicators: string[];
+  levels: KKTPLevel[];
+  passingThreshold?: number; // Nilai KKM/Interval minimum tercapai (misal: 75)
+  notes?: string;
+  updatedAt: string;
+}
+
+export type AssessmentType = 'formatif' | 'sumatif_lingkup_materi' | 'sumatif_akhir_semester';
+
+export interface Assessment {
+  id: string;
+  academicSettingId: string;
+  tpId: string; // Terhubung ke TP
+  date: string;
+  type: AssessmentType;
+  title: string;
+  description?: string;
+  maxScore: number;
+  passingScore?: number;
+  createdAt: string;
+}
+
+export type AssessmentResultStatus = 'belum_tercapai' | 'tercapai' | 'sangat_baik';
+
+export interface AssessmentResult {
+  id: string;
+  assessmentId: string;
+  studentId: string;
+  score: number;
+  status: AssessmentResultStatus;
+  note?: string;
+}
+
+// ==========================================
+// MODUL C: TINDAK LANJUT
+// ==========================================
+export type FollowUpStatus = 'planned' | 'ongoing' | 'completed';
+export type InterventionType =
+  | 'bimbingan_perorangan'
+  | 'bimbingan_kelompok'
+  | 'pembelajaran_ulang'
+  | 'tutor_sebaya'
+  | 'penugasan_bermakna';
+
+export interface RemedialRecord {
+  id: string;
+  academicSettingId: string;
+  studentId: string;
+  tpId: string;
+  sourceAssessmentId?: string;
+  reason: string; // Analisis kesulitan belajar / materi belum dikuasai
+  intervention: string; // Rencana tindakan / bentuk intervensi
+  interventionType?: InterventionType;
+  date: string; // Tanggal rencana pelaksanaan
+  reassessmentId?: string;
+  reassessmentScore?: number;
+  reassessmentDate?: string;
+  result?: string; // Hasil akhir / evaluasi ketercapaian (misal: "Tuntas (Skor 80)")
+  followUpAction?: string; // Tindak lanjut berikutnya
+  status: FollowUpStatus;
+  updatedAt: string;
+}
+
+export interface EnrichmentRecord {
+  id: string;
+  academicSettingId: string;
+  studentId: string;
+  tpId: string;
+  sourceAssessmentId?: string;
+  activity: string; // Bentuk kegiatan pengayaan / pendalaman materi
+  date: string;
+  result?: string;
+  status: FollowUpStatus;
+  updatedAt: string;
+}
+
+// ==========================================
+// MODUL D: KURIKULUM 2013 (K13)
+// ==========================================
+export interface K13AnalysisItem {
+  id: string;
+  skl: string;
+  ki: string;
+  kd: string;
+  indikator: string;
+  materi: string;
+  kegiatan: string;
+  penilaian: string;
+}
+
+export interface K13Analysis {
+  id: string;
+  academicSettingId: string;
+  items: K13AnalysisItem[];
+  updatedAt: string;
+}
+
+export interface K13KKMItem {
+  id: string;
+  kd: string;
+  indikator: string;
+  kompleksitas: number;
+  dayaDukung: number;
+  intake: number;
+  kkmIndikator: number;
+}
+
+export interface K13KKM {
+  id: string;
+  academicSettingId: string;
+  items: K13KKMItem[];
+  kkmTotal: number;
+  updatedAt: string;
+}
+
+export interface DocumentSnapshot {
+  schoolName: string;
+  npsn?: string;
+  schoolNpsn?: string;
+  schoolAddress?: string;
+  schoolVillage?: string;
+  schoolDistrict?: string;
+  schoolRegency?: string;
+  schoolProvince?: string;
+  principalName: string;
+  principalNip?: string;
+  principalSource?: string;
+  teacherName: string;
+  teacherNip?: string;
+  teacherStatus?: string;
+  academicYear: string;
+  semester: string;
+  grade: string;
+  subject: string;
+  phase?: string;
+  curriculum?: string;
+  curriculumType?: CurriculumType;
+  documentMode?: DocumentMode;
+  studentCount?: number;
+  generatedAt: string;
+  format?: 'docx' | 'pdf' | 'all';
+  sourceVersions?: {
+    cpUpdatedAt?: string;
+    tpUpdatedAt?: string;
+    atpUpdatedAt?: string;
+  };
+}
+
+export interface AppDocumentRecord {
+  id: string;
+  type: DocumentType;
+  title: string;
+  status: 'completed' | 'draft' | 'future_sprint';
+  lastGenerated?: string;
+  fileName?: string;
+  academicSettingId?: string;
+  workspaceId?: string;
+  sourceUpdatedAt?: string;
+  generatedAt?: string;
+  generatedFrom?: string;
+  format?: 'docx' | 'pdf' | 'all';
+  snapshot?: DocumentSnapshot;
+}
+
+export interface ProfileWorkspaceData {
+  profile: TeacherProfile;
+  school: SchoolData;
+  workspace: AdministrationWorkspace;
+  academicSetting: AcademicSetting;
+  context: ActiveContext;
+  cp: CPData;
+  cpAnalysis?: CPAnalysisData;
+  tp: TPData;
+  atp: ATPData;
+  documents: AppDocumentRecord[];
+  allWorkspaces: AdministrationWorkspace[];
+  allWorkspacesForProfile?: AdministrationWorkspace[];
+  activeProfile?: TeacherProfile;
+  activeSchool?: SchoolData;
+  schools: SchoolData[];
+  teacherSchoolAssignments?: TeacherSchoolAssignment[];
+  assignedSchools?: SchoolData[];
+  principalHistories?: PrincipalHistory[];
+  activeWorkspace?: AdministrationWorkspace;
+  activeAcademicSetting?: AcademicSetting;
+  activeContext?: ActiveContext;
+  activeCP?: CPData;
+  activeTP?: TPData;
+  activeATP?: ATPData;
+  // New modules scoped strictly to this workspace
+  students: Student[];
+  calendar?: AcademicCalendar;
+  calendarDays: CalendarDay[];
+  timeAllocations: TimeAllocation[];
+  attendanceSessions: AttendanceSession[];
+  attendanceRecords: AttendanceRecord[];
+  assessmentCriteria: AssessmentCriterion[];
+  assessments: Assessment[];
+  assessmentResults: AssessmentResult[];
+  remedials: RemedialRecord[];
+  enrichments: EnrichmentRecord[];
+  k13Analysis?: K13Analysis;
+  k13KKM?: K13KKM;
+}
+
+export interface AppStorageState {
+  version: number;
+  activeProfileId: string;
+  activeWorkspaceId?: string;
+  activeSchoolId?: string;
+  profiles: TeacherProfile[];
+  schools: SchoolData[];
+  teacherSchoolAssignments?: TeacherSchoolAssignment[];
+  principalHistories?: PrincipalHistory[];
+  workspaces: AdministrationWorkspace[];
+  academicSettings: AcademicSetting[];
+  cps: CPData[];
+  cpAnalyses?: CPAnalysisData[];
+  tps: TPData[];
+  atps: ATPData[];
+  documents: AppDocumentRecord[];
+  // New scoped collections
+  students?: Student[];
+  academicCalendars?: AcademicCalendar[];
+  effectiveDays?: CalendarDay[];
+  timeAllocations?: TimeAllocation[];
+  attendanceSessions?: AttendanceSession[];
+  attendanceRecords?: AttendanceRecord[];
+  assessmentCriteria?: AssessmentCriterion[];
+  assessments?: Assessment[];
+  assessmentResults?: AssessmentResult[];
+  remedialRecords?: RemedialRecord[];
+  enrichmentRecords?: EnrichmentRecord[];
+  k13Analyses?: K13Analysis[];
+  k13KKMs?: K13KKM[];
+}
+
+export type AppDataStore = AppStorageState;
+export type WorkflowStepId = 'profile' | 'academic' | 'cp' | 'tp' | 'atp' | 'admin';
+
+export interface WorkflowStepInfo {
+  id: WorkflowStepId;
+  number: string;
+  title: string;
+  shortLabel: string;
+  description: string;
+}
