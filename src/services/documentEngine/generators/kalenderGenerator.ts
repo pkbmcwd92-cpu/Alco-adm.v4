@@ -43,7 +43,7 @@ export async function generateKalenderAkademik(context: DocumentGenerationContex
   docChildren.push(
     createIdentityMetadataTable(school, profile, academicSetting, [
       ['Rentang Waktu Semester', `: ${calendar?.startDate || '-'} s/d ${calendar?.endDate || '-'}`],
-      ['Hari Sekolah / Minggu', `: ${calendar?.schoolDaysPerWeek || 5} Hari Kerja`],
+      ['Hari Sekolah / Minggu', `: ${calendar?.schoolDaysPerWeek ? `${calendar.schoolDaysPerWeek} Hari Kerja` : 'Belum diatur'}`],
       ['Beban Jam Pelajaran (JP)', `: ${weeklyJP !== null ? `${weeklyJP} JP / Minggu` : 'Input Manual Diperlukan'}`],
     ])
   );
@@ -236,13 +236,13 @@ export async function generateKalenderAkademik(context: DocumentGenerationContex
 
   return {
     success: true,
-    type: 'KALENDER',
+    type: 'KALENDER_AKADEMIK',
     title: 'Kalender Pendidikan & Jadwal',
     fileName,
     blob,
     record: {
       id: `doc-kalender-${Date.now()}`,
-      type: 'KALENDER',
+      type: 'KALENDER_AKADEMIK',
       title: 'Kalender Pendidikan & Jadwal',
       status: 'completed',
       lastGenerated: new Date().toISOString(),

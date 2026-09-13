@@ -46,7 +46,7 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
 
   // Read calendar strictly from context
   const hasCalendar = !!(calendar?.startDate && calendar?.endDate);
-  const schoolDaysPerWeek = calendar?.schoolDaysPerWeek || (school?.address ? 5 : 5);
+  const schoolDaysPerWeek = calendar?.schoolDaysPerWeek ?? null;
 
   let effectiveDaysCount = 0;
   let effectiveWeeksCount = 0;
@@ -72,6 +72,36 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
   } else {
     calendarStatusNote = 'Data kalender belum dikonfigurasi pada sistem';
   }
+
+  // Helper for Month Resolution (Patch C)
+  const resolveMonthIndex = (alloc?: { month?: number; startWeek?: number }): number | null => {
+    if (!alloc) return null;
+
+    // 1. Use allocation.month if available
+    if (alloc.month && alloc.month >= 1 && alloc.month <= 6) {
+      return alloc.month - 1;
+    }
+    if (alloc.month && alloc.month >= 7 && alloc.month <= 12) {
+      return isSemesterGanjil ? alloc.month - 7 : null;
+    }
+
+    // 2. Resolve startWeek to actual calendar date if calendar has startDate
+    if (alloc.startWeek && alloc.startWeek > 0 && calendar?.startDate) {
+      const startDate = new Date(calendar.startDate);
+      if (!isNaN(startDate.getTime())) {
+        const targetDate = new Date(startDate.getTime() + (alloc.startWeek - 1) * 7 * 24 * 60 * 60 * 1000);
+        const calMonth = targetDate.getMonth() + 1;
+        if (isSemesterGanjil && calMonth >= 7 && calMonth <= 12) {
+          return calMonth - 7;
+        } else if (!isSemesterGanjil && calMonth >= 1 && calMonth <= 6) {
+          return calMonth - 1;
+        }
+      }
+    }
+
+    // 3. Unresolved / cannot determine month deterministically
+    return null;
+  };
 
   // Normalize all allocations from context
   const normalizedAllocations = (timeAllocations || []).map(normalizeLearningAllocation);
@@ -146,15 +176,8 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
         totalAllocatedJPSum += allocatedJP;
       }
 
-      // Determine month: strictly from allocation.month or derived startWeek.
-      // If month is undefined, NEVER use index fallback. Display '-'
-      let targetMonthIdx: number | null = null;
-      if (matchingAlloc?.month && matchingAlloc.month >= 1 && matchingAlloc.month <= 6) {
-        targetMonthIdx = matchingAlloc.month - 1;
-      } else if (matchingAlloc?.startWeek && matchingAlloc.startWeek > 0) {
-        // Approximate month from startWeek only if startWeek is explicitly set (e.g. week 1-4 = month 0, week 5-8 = month 1, ...)
-        targetMonthIdx = Math.min(5, Math.max(0, Math.floor((matchingAlloc.startWeek - 1) / 3.5)));
-      }
+      // Determine month strictly using resolveMonthIndex (Patch C)
+      const targetMonthIdx = resolveMonthIndex(matchingAlloc);
 
       const monthDistributionCells = months.map((_, mIdx) => {
         const isTarget = targetMonthIdx !== null && mIdx === targetMonthIdx;
@@ -198,13 +221,8 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
         totalAllocatedJPSum += allocatedJP;
       }
 
-      // Determine month strictly from allocation:
-      let targetMonthIdx: number | null = null;
-      if (matchingAlloc?.month && matchingAlloc.month >= 1 && matchingAlloc.month <= 6) {
-        targetMonthIdx = matchingAlloc.month - 1;
-      } else if (matchingAlloc?.startWeek && matchingAlloc.startWeek > 0) {
-        targetMonthIdx = Math.min(5, Math.max(0, Math.floor((matchingAlloc.startWeek - 1) / 3.5)));
-      }
+      // Determine month strictly using resolveMonthIndex (Patch C)
+      const targetMonthIdx = resolveMonthIndex(matchingAlloc);
 
       const monthDistributionCells = months.map((_, mIdx) => {
         const isTarget = targetMonthIdx !== null && mIdx === targetMonthIdx;
@@ -243,10 +261,7 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
   assessmentAllocs.forEach((aAlloc, aIdx) => {
     const aJp = aAlloc.allocatedJP || 0;
     totalAllocatedJPSum += aJp;
-    let aMonthIdx: number | null = null;
-    if (aAlloc.month && aAlloc.month >= 1 && aAlloc.month <= 6) {
-      aMonthIdx = aAlloc.month - 1;
-    }
+    const aMonthIdx = resolveMonthIndex(aAlloc);
 
     const aMonthCells = months.map((_, mIdx) =>
       createTableDataCell(aMonthIdx !== null && mIdx === aMonthIdx ? `${aJp}` : '-', 7, AlignmentType.CENTER)

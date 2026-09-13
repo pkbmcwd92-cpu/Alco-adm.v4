@@ -209,7 +209,9 @@ export type TimeAllocationSourceType =
   | 'KD'
   | 'K13_OBJECTIVE'
   | 'ASSESSMENT'
-  | 'RESERVE';
+  | 'RESERVE'
+  | 'LEGACY'
+  | 'UNKNOWN';
 
 /**
  * Model Shared Distribusi Alokasi Waktu Pembelajaran (Merdeka & K13)

@@ -294,7 +294,7 @@ export interface CalendarDay {
 export interface TimeAllocation {
   id: string;
   academicSettingId: string;
-  sourceType?: 'ATP_ITEM' | 'TP' | 'KD' | 'K13_OBJECTIVE' | 'ASSESSMENT' | 'RESERVE';
+  sourceType?: 'ATP_ITEM' | 'TP' | 'KD' | 'K13_OBJECTIVE' | 'ASSESSMENT' | 'RESERVE' | 'LEGACY' | 'UNKNOWN';
   sourceId?: string;
   tpId?: string;
   atpItemId?: string;

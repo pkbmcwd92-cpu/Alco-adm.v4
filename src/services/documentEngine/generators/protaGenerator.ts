@@ -35,7 +35,7 @@ export async function generatePROTA(context: DocumentGenerationContext): Promise
   });
 
   const weeklyJP = academicSetting.subjectWeeklyJP || academicSetting.totalHoursPerWeek || officialRule.weeklyJP || null;
-  const annualJP = officialRule.annualJP || (weeklyJP !== null ? weeklyJP * 36 : null);
+  const annualJP = officialRule.annualJP ?? null;
 
   // Normalize all allocations from context
   const normalizedAllocations = (timeAllocations || []).map(normalizeLearningAllocation);

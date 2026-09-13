@@ -11,6 +11,8 @@ import {
   AvailableJPResult,
   TimeAllocationValidationResult,
   TimeAllocationStatus,
+  LearningTimeAllocation,
+  TimeAllocation,
   AcademicCalendar,
   CalendarDay,
 } from '../types';
@@ -1427,15 +1429,25 @@ export function normalizeLearningAllocation(raw: Partial<LearningTimeAllocation 
   const sourceId = raw.sourceId ?? raw.tpId ?? raw.atpItemId ?? raw.id ?? '';
   let sourceType = raw.sourceType;
   if (!sourceType) {
-    if (raw.tpId || raw.atpItemId) sourceType = 'ATP_ITEM';
-    else sourceType = 'TP';
+    const rawAny = raw as Record<string, any>;
+    if (raw.atpItemId || rawAny.atpId || (sourceId && (sourceId.startsWith('atp-') || sourceId.startsWith('ATP-')))) {
+      sourceType = 'ATP_ITEM';
+    } else if (raw.tpId || rawAny.tpCode || (sourceId && (sourceId.startsWith('tp-') || sourceId.startsWith('TP-')))) {
+      sourceType = 'TP';
+    } else if (rawAny.kdId || rawAny.kd || rawAny.kdCode || (sourceId && (sourceId.startsWith('kd-') || sourceId.startsWith('KD-')))) {
+      sourceType = 'KD';
+    } else if (rawAny.k13ObjectiveId || rawAny.indicatorId || rawAny.indikatorId || (sourceId && sourceId.startsWith('k13-'))) {
+      sourceType = 'K13_OBJECTIVE';
+    } else {
+      sourceType = 'LEGACY';
+    }
   }
   return {
     id: raw.id || `alloc-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
     academicSettingId: raw.academicSettingId || '',
     sourceType,
     sourceId,
-    semester: (raw.semester === '2' || raw.semester === 'Semester 2') ? '2' : '1',
+    semester: ((raw as Record<string, any>).semester === '2' || (raw as Record<string, any>).semester === 'Semester 2') ? '2' : '1',
     allocatedJP,
     startWeek,
     endWeek: raw.endWeek ?? startWeek,
