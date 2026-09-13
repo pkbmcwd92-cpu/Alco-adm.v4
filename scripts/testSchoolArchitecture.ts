@@ -65,6 +65,8 @@ async function runAcceptanceTests() {
   assert(Boolean(initialSchool), 'Setup: Initial school exists');
   assert(Boolean(initialProfile), 'Setup: Initial profile exists');
   assert(initialProfile.schoolId === initialSchool.id, 'Setup: Initial profile points to initial school');
+  assert((initialStorage as any).activeSchoolId === undefined, 'Setup v4: activeSchoolId is purged from initial state');
+  assert(!initialStorage.teacherSchoolAssignments || initialStorage.teacherSchoolAssignments.length === 0, 'Setup v4: No initial assignments generated in getInitialState()');
 
   // -------------------------------------------------------------
   // Skenario A: Profil Baru
@@ -107,7 +109,7 @@ async function runAcceptanceTests() {
   assert(workspaceDataA.school.id === initialSchool.id, 'Skenario A.4: Resolved school context berasal dari profile.schoolId');
 
   // -------------------------------------------------------------
-  // Skenario B: Sekolah Baru
+  // Skenario B: Sekolah Baru (Tambah SchoolData TIDAK otomatis mengganti sekolah utama)
   // -------------------------------------------------------------
   console.log('\n--- Skenario B: Sekolah Baru ---');
   const newSchoolData = createSchool({
@@ -126,7 +128,12 @@ async function runAcceptanceTests() {
   assert(Boolean(newSchoolData.id), 'Skenario B.1: SchoolData baru dibuat dengan ID unik');
   assert(newSchoolData.id.startsWith('sch-'), 'Skenario B.2: Format ID sekolah valid');
 
-  // Arahkan profil A ke sekolah baru
+  // VERIFIKASI KRUSIAL v4: Tambah SchoolData TIDAK mengganti sekolah utama profil
+  const stateImmediatelyAfterCreate = loadAppStorage();
+  const profACheckBeforeSwitch = stateImmediatelyAfterCreate.profiles.find((p) => p.id === profileA.id);
+  assert(profACheckBeforeSwitch?.schoolId === initialSchool.id, 'Skenario B.3: Tambah SchoolData TIDAK mengganti sekolah utama profil');
+
+  // Pergantian Sekolah Utama HANYA melalui saveProfile({ ...profile, schoolId: selectedSchoolId })
   saveProfile({
     ...savedProfileA!,
     schoolId: newSchoolData.id,
@@ -134,11 +141,11 @@ async function runAcceptanceTests() {
 
   const stateAfterB = loadAppStorage();
   const updatedProfileA = stateAfterB.profiles.find((p) => p.id === profileA.id);
-  assert(updatedProfileA?.schoolId === newSchoolData.id, 'Skenario B.3: TeacherProfile.schoolId === newSchool.id');
+  assert(updatedProfileA?.schoolId === newSchoolData.id, 'Skenario B.4: TeacherProfile.schoolId === newSchool.id');
 
   const wsDataB = getProfileWorkspace(profileA.id, wsA.id);
-  assert(wsDataB.workspace.schoolId === newSchoolData.id, 'Skenario B.4: AdministrationWorkspace.schoolId === newSchool.id');
-  assert(wsDataB.school.name === 'SDIT Al-Falah Skenario B', 'Skenario B.5: Context school ter-update ke sekolah baru');
+  assert(wsDataB.workspace.schoolId === newSchoolData.id, 'Skenario B.5: AdministrationWorkspace.schoolId disinkronkan ke newSchool.id');
+  assert(wsDataB.school.name === 'SDIT Al-Falah Skenario B', 'Skenario B.6: Context school ter-update ke sekolah baru');
 
   // -------------------------------------------------------------
   // Skenario C: Ganti Sekolah

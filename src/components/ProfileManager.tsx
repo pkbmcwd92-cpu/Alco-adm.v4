@@ -19,7 +19,7 @@ import {
   History,
   AlertTriangle,
 } from 'lucide-react';
-import { TeacherProfile, SchoolData, PrincipalHistory, TeacherSchoolAssignment } from '../types';
+import { TeacherProfile, SchoolData, PrincipalHistory } from '../types';
 import { EDUCATION_LEVELS } from '../data/curriculumDefaults';
 import { SchoolIdentityProvider, SchoolSearchService, SchoolCandidate } from '../services/schoolProvider';
 
@@ -32,7 +32,8 @@ interface ProfileManagerProps {
   onSelectProfile: (id: string) => void;
   onSaveProfile: (profile: TeacherProfile) => void;
   onDeleteProfile: (id: string) => void;
-  onSaveSchool: (school: SchoolData, mode?: 'create' | 'edit') => void;
+  onCreateSchool: (school: Omit<SchoolData, 'id' | 'createdAt' | 'updatedAt'> | SchoolData) => void;
+  onUpdateSchool: (id: string, updates: Partial<SchoolData>) => void;
   onSavePrincipalHistory?: (history: PrincipalHistory) => void;
   onSetActivePrincipal?: (schoolId: string, historyId: string) => void;
   onNextStep: () => void;
@@ -47,7 +48,8 @@ export const ProfileManager: React.FC<ProfileManagerProps> = ({
   onSelectProfile,
   onSaveProfile,
   onDeleteProfile,
-  onSaveSchool,
+  onCreateSchool,
+  onUpdateSchool,
   onSavePrincipalHistory,
   onSetActivePrincipal,
   onNextStep,
@@ -355,7 +357,11 @@ export const ProfileManager: React.FC<ProfileManagerProps> = ({
       updatedAt: new Date().toISOString(),
     };
 
-    onSaveSchool(savedSchool, schoolModalMode);
+    if (schoolModalMode === 'create') {
+      onCreateSchool(savedSchool);
+    } else {
+      onUpdateSchool(savedSchool.id, savedSchool);
+    }
 
     setIsEditingSchool(false);
     setSearchQuery('');

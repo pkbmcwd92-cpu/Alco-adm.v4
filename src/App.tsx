@@ -16,7 +16,8 @@ import {
   getProfileWorkspace,
   saveProfile,
   deleteProfile,
-  saveSchool,
+  createSchool,
+  updateSchool,
   savePrincipalHistory,
   setActivePrincipal,
   saveAcademicSetting,
@@ -121,15 +122,14 @@ export function App() {
     refreshData();
   };
 
-  // Handlers for School
-  const handleSaveSchool = (school: SchoolData, mode: 'create' | 'edit' = 'edit') => {
-    const saved = saveSchool(school, mode);
-    if (mode === 'create' || !activeProfile.schoolId) {
-      saveProfile({
-        ...activeProfile,
-        schoolId: saved.id,
-      });
-    }
+  // Handlers for School (Explicit CRUD)
+  const handleCreateSchool = (school: Omit<SchoolData, 'id' | 'createdAt' | 'updatedAt'> | SchoolData) => {
+    createSchool(school);
+    refreshData();
+  };
+
+  const handleUpdateSchool = (schoolId: string, updates: Partial<SchoolData>) => {
+    updateSchool(schoolId, updates);
     refreshData();
   };
 
@@ -295,7 +295,8 @@ export function App() {
               onSelectProfile={handleSelectProfile}
               onSaveProfile={handleSaveProfile}
               onDeleteProfile={handleDeleteProfile}
-              onSaveSchool={handleSaveSchool}
+              onCreateSchool={handleCreateSchool}
+              onUpdateSchool={handleUpdateSchool}
               onSavePrincipalHistory={handleSavePrincipalHistory}
               onSetActivePrincipal={handleSetActivePrincipal}
               onNextStep={() => setCurrentStep('academic')}

@@ -16,6 +16,11 @@ export interface TeacherProfile {
   updatedAt: string;
 }
 
+/**
+ * @deprecated Migration-only legacy entity.
+ * In v4, 1 TeacherProfile = 1 primary SchoolData via TeacherProfile.schoolId.
+ * Retained strictly for reading and migrating legacy v3 storage data.
+ */
 export interface TeacherSchoolAssignment {
   id: string;
   teacherId: string;
@@ -519,9 +524,11 @@ export interface AppStorageState {
   version: number;
   activeProfileId: string;
   activeWorkspaceId?: string;
+  /** @deprecated Migration-only legacy field. In v4, active school is strictly derived from activeProfile.schoolId */
   activeSchoolId?: string;
   profiles: TeacherProfile[];
   schools: SchoolData[];
+  /** @deprecated Migration-only legacy field. Only read during legacy data migration */
   teacherSchoolAssignments?: TeacherSchoolAssignment[];
   principalHistories?: PrincipalHistory[];
   workspaces: AdministrationWorkspace[];

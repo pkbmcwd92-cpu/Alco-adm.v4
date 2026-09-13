@@ -146,24 +146,13 @@ export function getInitialState(): AppStorageState {
     },
   ];
 
-  const initialAssignments: TeacherSchoolAssignment[] = INITIAL_PROFILES.map((p) => ({
-    id: `assign-${p.id}-${INITIAL_SCHOOL.id}`,
-    teacherId: p.id,
-    schoolId: INITIAL_SCHOOL.id,
-    status: 'active',
-    role: 'Guru Kelas / Mapel',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  }));
-
   return {
-    version: 3,
+    version: 4,
     activeProfileId: INITIAL_PROFILES[0].id,
     activeWorkspaceId: initialWorkspaces[0].id,
-    activeSchoolId: INITIAL_SCHOOL.id,
     profiles: [...INITIAL_PROFILES],
     schools: [{ ...INITIAL_SCHOOL }],
-    teacherSchoolAssignments: initialAssignments,
+    teacherSchoolAssignments: [],
     principalHistories: [],
     workspaces: initialWorkspaces,
     academicSettings: [...INITIAL_ACADEMIC_SETTINGS],
@@ -1239,6 +1228,7 @@ export function updateSchool(schoolOrId: string | SchoolData, updates?: Partial<
   return updatedSchool;
 }
 
+/** @deprecated In v4, use explicit createSchool() or updateSchool() */
 export function saveSchool(school: SchoolData, mode: 'create' | 'edit' = 'edit'): SchoolData {
   if (mode === 'create') {
     return createSchool(school);
@@ -1262,7 +1252,8 @@ export function deleteSchool(schoolId: string): boolean {
   return true;
 }
 
-// Legacy compatibility stubs (non-active data flow)
+// Legacy compatibility stubs (non-active data flow, deprecated)
+/** @deprecated Non-active data flow. In v4, active school is strictly derived from activeProfile.schoolId */
 export function assignSchoolToTeacher(teacherId: string, schoolId: string, role?: string): TeacherSchoolAssignment {
   return {
     id: `assign-${teacherId}-${schoolId}`,
@@ -1275,12 +1266,14 @@ export function assignSchoolToTeacher(teacherId: string, schoolId: string, role?
   };
 }
 
+/** @deprecated Non-active data flow */
 export function unassignSchoolFromTeacher(_teacherId: string, _schoolId: string): boolean {
   return true;
 }
 
+/** @deprecated Non-active data flow. In v4, active school is strictly derived from activeProfile.schoolId */
 export function setActiveSchool(_schoolId: string): void {
-  // Deprecated: In v3.1, active school is strictly derived from activeProfile.schoolId
+  // Deprecated: In v4, active school is strictly derived from activeProfile.schoolId
 }
 
 export function savePrincipalHistory(history: PrincipalHistory): void {
