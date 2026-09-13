@@ -251,3 +251,12 @@ export interface TimeAllocationValidationResult {
   allocationsCount: number;
 }
 
+export interface EffectiveWeekInfo {
+  weekIndex: number;
+  startDate: string;
+  endDate: string;
+  effectiveDaysCount: number;
+  month: number;
+  year: number;
+}
+

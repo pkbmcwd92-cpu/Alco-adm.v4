@@ -19,7 +19,7 @@ import {
   createTableDataCell,
   createSignoffBlock,
 } from '../docxStyles';
-import { getSubjectJP, calculateAvailableJP, calculateEffectiveDays, normalizeLearningAllocation } from '../../jpEngine';
+import { getSubjectJP, calculateAvailableJP, calculateEffectiveDays, normalizeLearningAllocation, getEffectiveWeeksList } from '../../jpEngine';
 
 export async function generatePROMES(context: DocumentGenerationContext): Promise<GeneratedDocumentResult> {
   const { school, profile, academicSetting, atp, calendar, calendarDays, timeAllocations } = context;
@@ -73,7 +73,9 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
     calendarStatusNote = 'Data kalender belum dikonfigurasi pada sistem';
   }
 
-  // Helper for Month Resolution (Patch C)
+  const effectiveWeeksList = hasCalendar ? getEffectiveWeeksList(calendar, calendarDays || []) : [];
+
+  // Helper for Month Resolution (Patch: Effective-week actual date to month)
   const resolveMonthIndex = (alloc?: { month?: number; startWeek?: number }): number | null => {
     if (!alloc) return null;
 
@@ -82,15 +84,14 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
       return alloc.month - 1;
     }
     if (alloc.month && alloc.month >= 7 && alloc.month <= 12) {
-      return isSemesterGanjil ? alloc.month - 7 : null;
+      return isSemesterGanjil ? alloc.month - 7 : (!isSemesterGanjil ? alloc.month - 1 : null);
     }
 
-    // 2. Resolve startWeek to actual calendar date if calendar has startDate
-    if (alloc.startWeek && alloc.startWeek > 0 && calendar?.startDate) {
-      const startDate = new Date(calendar.startDate);
-      if (!isNaN(startDate.getTime())) {
-        const targetDate = new Date(startDate.getTime() + (alloc.startWeek - 1) * 7 * 24 * 60 * 60 * 1000);
-        const calMonth = targetDate.getMonth() + 1;
+    // 2. Resolve startWeek via effectiveWeeksList to actual effective week's month
+    if (alloc.startWeek && alloc.startWeek > 0 && effectiveWeeksList.length > 0) {
+      const match = effectiveWeeksList.find(w => w.weekIndex === alloc.startWeek);
+      if (match) {
+        const calMonth = match.month; // 1..12
         if (isSemesterGanjil && calMonth >= 7 && calMonth <= 12) {
           return calMonth - 7;
         } else if (!isSemesterGanjil && calMonth >= 1 && calMonth <= 6) {
@@ -99,7 +100,7 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
       }
     }
 
-    // 3. Unresolved / cannot determine month deterministically
+    // 3. Unresolved / cannot determine month deterministically (no synthetic guessing)
     return null;
   };
 

@@ -15,6 +15,7 @@ import {
   TimeAllocation,
   AcademicCalendar,
   CalendarDay,
+  EffectiveWeekInfo,
 } from '../types';
 import {
   calculateTeacherWorkload,
@@ -1334,6 +1335,100 @@ export function calculateEffectiveDays(
       nonLearning,
     },
   };
+}
+
+/**
+ * Mengelompokkan hari-hari efektif pembelajaran berdasarkan minggu kalender
+ * untuk mendapatkan urutan Minggu Efektif Aktual beserta tanggal dan bulan resminya.
+ */
+export function getEffectiveWeeksList(
+  calendar: Partial<AcademicCalendar> & { startDate: string; endDate: string; schoolDaysPerWeek?: number },
+  calendarDays: CalendarDay[] = []
+): EffectiveWeekInfo[] {
+  if (!calendar?.startDate || !calendar?.endDate) return [];
+
+  const schoolDaysPerWeek = Number(calendar.schoolDaysPerWeek) === 6 ? 6 : 5;
+  const start = new Date(calendar.startDate);
+  const end = new Date(calendar.endDate);
+
+  if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) return [];
+
+  const dayMap = new Map<string, CalendarDay>();
+  for (const day of calendarDays) {
+    if (day?.date) {
+      dayMap.set(day.date, day);
+    }
+  }
+
+  // Group effective days into calendar weeks (Monday to Sunday)
+  const weekMap = new Map<string, string[]>();
+  const weekOrder: string[] = [];
+
+  const current = new Date(start);
+  while (current <= end) {
+    const dayOfWeek = current.getDay(); // 0: Sun, 1: Mon...
+    const isScheduledSchoolDay = schoolDaysPerWeek === 6 ? dayOfWeek >= 1 && dayOfWeek <= 6 : dayOfWeek >= 1 && dayOfWeek <= 5;
+
+    if (isScheduledSchoolDay) {
+      const dateStr = current.toISOString().slice(0, 10);
+      const specialDay = dayMap.get(dateStr);
+
+      let isEffective = true;
+      if (specialDay) {
+        const normStatus = (specialDay.status || '').toUpperCase();
+        if (
+          normStatus === 'HOLIDAY' ||
+          specialDay.status === 'holiday' ||
+          normStatus === 'SCHOOL_EVENT' ||
+          specialDay.status === 'schoolEvent' ||
+          normStatus === 'ASSESSMENT' ||
+          normStatus === 'BREAK' ||
+          normStatus === 'NON_LEARNING' ||
+          specialDay.status === 'other' ||
+          specialDay.status === 'weekend'
+        ) {
+          isEffective = false;
+        }
+      }
+
+      if (isEffective) {
+        // Monday of current date's calendar week
+        const mon = new Date(current);
+        const day = mon.getDay();
+        const diff = mon.getDate() - day + (day === 0 ? -6 : 1);
+        mon.setDate(diff);
+        const mondayKey = mon.toISOString().slice(0, 10);
+
+        if (!weekMap.has(mondayKey)) {
+          weekMap.set(mondayKey, []);
+          weekOrder.push(mondayKey);
+        }
+        weekMap.get(mondayKey)!.push(dateStr);
+      }
+    }
+
+    current.setDate(current.getDate() + 1);
+  }
+
+  const effectiveWeeks: EffectiveWeekInfo[] = [];
+  let effectiveWeekCounter = 1;
+
+  for (const monKey of weekOrder) {
+    const dates = weekMap.get(monKey);
+    if (dates && dates.length > 0) {
+      const firstDate = new Date(dates[0]);
+      effectiveWeeks.push({
+        weekIndex: effectiveWeekCounter++,
+        startDate: dates[0],
+        endDate: dates[dates.length - 1],
+        effectiveDaysCount: dates.length,
+        month: firstDate.getMonth() + 1, // 1 - 12
+        year: firstDate.getFullYear(),
+      });
+    }
+  }
+
+  return effectiveWeeks;
 }
 
 /**
