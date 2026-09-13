@@ -19,10 +19,10 @@ import {
   createTableDataCell,
   createSignoffBlock,
 } from '../docxStyles';
-import { getSubjectJP, calculateAvailableJP } from '../../jpEngine';
+import { getSubjectJP, calculateAvailableJP, calculateEffectiveDays, normalizeLearningAllocation } from '../../jpEngine';
 
 export async function generatePROTA(context: DocumentGenerationContext): Promise<GeneratedDocumentResult> {
-  const { school, profile, academicSetting, atp, tp, cp } = context;
+  const { school, profile, academicSetting, atp, tp, cp, calendar, calendarDays, timeAllocations } = context;
 
   const docChildren: (Paragraph | Table)[] = [];
 
@@ -34,8 +34,11 @@ export async function generatePROTA(context: DocumentGenerationContext): Promise
     subject: academicSetting.subject,
   });
 
-  const weeklyJP = academicSetting.subjectWeeklyJP || academicSetting.totalHoursPerWeek || officialRule.weeklyJP || 4;
-  const annualJP = officialRule.annualJP || (weeklyJP * 36);
+  const weeklyJP = academicSetting.subjectWeeklyJP || academicSetting.totalHoursPerWeek || officialRule.weeklyJP || null;
+  const annualJP = officialRule.annualJP || (weeklyJP !== null ? weeklyJP * 36 : null);
+
+  // Normalize all allocations from context
+  const normalizedAllocations = (timeAllocations || []).map(normalizeLearningAllocation);
 
   // 1. Header
   docChildren.push(
@@ -48,9 +51,9 @@ export async function generatePROTA(context: DocumentGenerationContext): Promise
   // 2. Identity Box with Provenance Metadata
   docChildren.push(
     createIdentityMetadataTable(school, profile, academicSetting, [
-      ['Alokasi Intrakurikuler per Minggu', `: ${weeklyJP} JP / Minggu`],
-      ['Total Alokasi Waktu Tahunan', `: ${annualJP} JP / Tahun (36 Minggu Efektif Asumsi Tahunan)`],
-      ['Dasar Regulasi Struktur Kurikulum', `: ${officialRule.regulation}`],
+      ['Alokasi Intrakurikuler per Minggu', `: ${weeklyJP !== null ? `${weeklyJP} JP / Minggu` : 'Input Manual Diperlukan'}`],
+      ['Total Alokasi Waktu Tahunan Resmi', `: ${annualJP !== null ? `${annualJP} JP / Tahun` : 'Belum Diverifikasi'}`],
+      ['Dasar Regulasi Struktur Kurikulum', `: ${officialRule.regulation || 'Struktur Kustom Guru'}`],
     ])
   );
   docChildren.push(new Paragraph({ spacing: { after: 180 } }));
@@ -122,7 +125,7 @@ export async function generatePROTA(context: DocumentGenerationContext): Promise
       spacing: { before: 120, after: 80 },
       children: [
         new TextRun({
-          text: 'B. Distribusi Alokasi Waktu Pembelajaran Tahunan (Semester Ganjil & Genap)',
+          text: 'B. Distribusi Alokasi Waktu Pembelajaran Tahunan',
           bold: true,
           size: 22,
           font: 'Arial',
@@ -154,34 +157,45 @@ export async function generatePROTA(context: DocumentGenerationContext): Promise
         ],
       });
 
-  const isSemesterGanjil = academicSetting.semester?.includes('1') || academicSetting.semester?.toLowerCase().includes('ganjil');
-  const semesterLabel = isSemesterGanjil ? 'Semester 1 (Ganjil)' : 'Semester 2 (Genap)';
-
-  let totalJpSum = 0;
+  let totalAllocatedJPSum = 0;
   let tableDataRows: TableRow[] = [];
 
   if (isK13Curriculum) {
     const k13Items = context.k13Analysis?.items || [];
     tableDataRows = k13Items.map((item, index) => {
-      const jpVal = weeklyJP;
-      totalJpSum += jpVal;
+      const matchingAlloc = normalizedAllocations.find(
+        (a) => a.sourceId === item.id || a.sourceId === item.kd
+      );
+      const allocatedJP = matchingAlloc?.allocatedJP ?? (item.alokasiJp ? Number(item.alokasiJp) : null);
+      if (allocatedJP !== null) {
+        totalAllocatedJPSum += allocatedJP;
+      }
+
+      const itemSemester = matchingAlloc?.semester === '2' ? 'Semester 2 (Genap)' : 'Semester 1 (Ganjil)';
+
       return new TableRow({
         children: [
           createTableDataCell(`${index + 1}`, 6, AlignmentType.CENTER),
           createTableDataCell(item.kd, 30, AlignmentType.LEFT, true),
           createTableDataCell(`${item.materi || '-'}\nKegiatan: ${item.kegiatan || '-'}`, 34, AlignmentType.LEFT),
-          createTableDataCell(`${jpVal} JP`, 15, AlignmentType.CENTER, true),
-          createTableDataCell(index < Math.ceil(k13Items.length / 2) ? 'Semester 1 (Ganjil)' : 'Semester 2 (Genap)', 15, AlignmentType.CENTER),
+          createTableDataCell(allocatedJP !== null ? `${allocatedJP} JP` : '-', 15, AlignmentType.CENTER, true),
+          createTableDataCell(itemSemester, 15, AlignmentType.CENTER),
         ],
       });
     });
   } else {
-    // Build rows from ATP items
     const items = atp?.items && atp.items.length > 0 ? atp.items : [];
 
     tableDataRows = items.map((item, index) => {
-      const jpVal = Number(item.jp) || weeklyJP;
-      totalJpSum += jpVal;
+      const matchingAlloc = normalizedAllocations.find(
+        (a) => a.sourceId === item.id || a.sourceId === item.tpCode || a.tpId === item.id || a.atpItemId === item.id
+      );
+      const allocatedJP = matchingAlloc?.allocatedJP ?? (item.jp ? Number(item.jp) : null);
+      if (allocatedJP !== null) {
+        totalAllocatedJPSum += allocatedJP;
+      }
+
+      const itemSemester = matchingAlloc?.semester === '2' ? 'Semester 2 (Genap)' : 'Semester 1 (Ganjil)';
 
       return new TableRow({
         children: [
@@ -201,12 +215,30 @@ export async function generatePROTA(context: DocumentGenerationContext): Promise
               }),
             ],
           }),
-          createTableDataCell(`${jpVal} JP`, 15, AlignmentType.CENTER, true),
-          createTableDataCell(index < Math.ceil(items.length / 2) ? 'Semester 1 (Ganjil)' : 'Semester 2 (Genap)', 15, AlignmentType.CENTER),
+          createTableDataCell(allocatedJP !== null ? `${allocatedJP} JP` : '-', 15, AlignmentType.CENTER, true),
+          createTableDataCell(itemSemester, 15, AlignmentType.CENTER),
         ],
       });
     });
   }
+
+  // Explicit Assessment Allocations ONLY
+  const assessmentAllocs = normalizedAllocations.filter((a) => a.sourceType === 'ASSESSMENT');
+  assessmentAllocs.forEach((aAlloc, aIdx) => {
+    const aJp = aAlloc.allocatedJP || 0;
+    totalAllocatedJPSum += aJp;
+    tableDataRows.push(
+      new TableRow({
+        children: [
+          createTableDataCell(`${tableDataRows.length + 1}`, 6, AlignmentType.CENTER),
+          createTableDataCell('ASESMEN', isK13Curriculum ? 30 : 14, AlignmentType.CENTER, true),
+          createTableDataCell(aAlloc.notes || 'Asesmen Sumatif / Evaluasi Pembelajaran', isK13Curriculum ? 34 : 50, AlignmentType.LEFT),
+          createTableDataCell(`${aJp} JP`, 15, AlignmentType.CENTER, true),
+          createTableDataCell(aAlloc.semester === '2' ? 'Semester 2 (Genap)' : 'Semester 1 (Ganjil)', 15, AlignmentType.CENTER),
+        ],
+      })
+    );
+  });
 
   // Summary Row
   const totalRow = new TableRow({
@@ -220,7 +252,7 @@ export async function generatePROTA(context: DocumentGenerationContext): Promise
             alignment: AlignmentType.RIGHT,
             children: [
               new TextRun({
-                text: 'TOTAL ALOKASI WAKTU INTRARIKULER TAHUNAN: ',
+                text: 'TOTAL ALOKASI JP TERCATAT: ',
                 bold: true,
                 size: 20,
                 font: 'Arial',
@@ -229,7 +261,7 @@ export async function generatePROTA(context: DocumentGenerationContext): Promise
           }),
         ],
       }),
-      createTableDataCell(`${totalJpSum} JP`, 15, AlignmentType.CENTER, true),
+      createTableDataCell(`${totalAllocatedJPSum} JP`, 15, AlignmentType.CENTER, true),
       new TableCell({
         width: { size: 15, type: WidthType.PERCENTAGE },
         children: [new Paragraph({})],
@@ -243,6 +275,45 @@ export async function generatePROTA(context: DocumentGenerationContext): Promise
   });
 
   docChildren.push(protaTable);
+
+  // Status Alokasi Waktu
+  let allocationStatusText = 'Belum ada data alokasi waktu.';
+  if (annualJP !== null) {
+    const remainingJP = annualJP - totalAllocatedJPSum;
+    if (remainingJP > 0) {
+      allocationStatusText = `Sisa JP Belum Dialokasikan: ${remainingJP} JP dari standar tahunan (${annualJP} JP/tahun).`;
+    } else if (remainingJP === 0) {
+      allocationStatusText = `Alokasi Seimbang: Tepat ${totalAllocatedJPSum} JP sesuai kapasitas tahunan resmi (${annualJP} JP).`;
+    } else {
+      allocationStatusText = `Defisit JP: Total alokasi (${totalAllocatedJPSum} JP) melampaui kapasitas tahunan resmi (${annualJP} JP) sebesar ${Math.abs(remainingJP)} JP.`;
+    }
+  }
+
+  docChildren.push(
+    new Paragraph({
+      spacing: { before: 140, after: 60 },
+      children: [
+        new TextRun({
+          text: 'Status Alokasi Waktu Tahunan:',
+          bold: true,
+          size: 19,
+          font: 'Arial',
+        }),
+      ],
+    }),
+    new Paragraph({
+      spacing: { after: 120 },
+      children: [
+        new TextRun({
+          text: `• ${allocationStatusText}\n• Angka alokasi waktu berasal dari data perencanaan pembelajaran nyata yang telah disusun guru.\n• Item bertanda strip (-) menunjukkan unit kompetensi yang belum dialokasikan beban jam pelajarannya.`,
+          size: 18,
+          font: 'Arial',
+          italics: true,
+          color: '475569',
+        }),
+      ],
+    })
+  );
 
   // 5. Signoff
   docChildren.push(...createSignoffBlock(school, profile));
@@ -292,4 +363,3 @@ export async function generatePROTA(context: DocumentGenerationContext): Promise
     },
   };
 }
-

@@ -19,17 +19,17 @@ import {
   createTableDataCell,
   createSignoffBlock,
 } from '../docxStyles';
-import { getSubjectJP, calculateAvailableJP, calculateEffectiveDays } from '../../jpEngine';
+import { getSubjectJP, calculateAvailableJP, calculateEffectiveDays, normalizeLearningAllocation } from '../../jpEngine';
 
 export async function generatePROMES(context: DocumentGenerationContext): Promise<GeneratedDocumentResult> {
-  const { school, profile, academicSetting, atp } = context;
+  const { school, profile, academicSetting, atp, calendar, calendarDays, timeAllocations } = context;
 
   const docChildren: (Paragraph | Table)[] = [];
 
   const isSemesterGanjil =
     academicSetting.semester?.includes('1') || academicSetting.semester?.toLowerCase().includes('ganjil');
   const semesterLabel = isSemesterGanjil ? 'Semester 1 (Ganjil)' : 'Semester 2 (Genap)';
-  const semesterKey = isSemesterGanjil ? 'SEMESTER_1' : 'SEMESTER_2';
+  const semesterKey = isSemesterGanjil ? '1' : '2';
   const months = isSemesterGanjil
     ? ['Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
     : ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni'];
@@ -42,31 +42,39 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
     subject: academicSetting.subject,
   });
 
-  const weeklyJP = academicSetting.subjectWeeklyJP || academicSetting.totalHoursPerWeek || officialRule.weeklyJP || 4;
+  const weeklyJP = academicSetting.subjectWeeklyJP || academicSetting.totalHoursPerWeek || officialRule.weeklyJP || null;
 
-  const schoolDaysPerWeek = 5;
-  const effectiveResult = calculateEffectiveDays(
-    {
-      startDate: isSemesterGanjil ? '2026-07-15' : '2027-01-05',
-      endDate: isSemesterGanjil ? '2026-12-20' : '2027-06-25',
-      schoolDaysPerWeek,
+  // Read calendar strictly from context
+  const hasCalendar = !!(calendar?.startDate && calendar?.endDate);
+  const schoolDaysPerWeek = calendar?.schoolDaysPerWeek || (school?.address ? 5 : 5);
+
+  let effectiveDaysCount = 0;
+  let effectiveWeeksCount = 0;
+  let availableJPCount = 0;
+  let calendarStatusNote = 'Data kalender satuan pendidikan terhubung';
+
+  if (hasCalendar && calendar) {
+    const effectiveResult = calculateEffectiveDays(calendar, calendarDays || []);
+    effectiveDaysCount = effectiveResult.effectiveLearningDays;
+    const availableJP = calculateAvailableJP({
+      subjectWeeklyJP: weeklyJP || 0,
+      effectiveLearningDays: effectiveDaysCount,
+      schoolDaysPerWeek: calendar.schoolDaysPerWeek || 5,
       semester: semesterLabel,
-      academicYear: academicSetting.academicYear || '2026/2027',
-    },
-    context.calendarDays || []
-  );
+      academicYear: academicSetting.academicYear,
+      level: academicSetting.level,
+      grade: academicSetting.grade,
+      subject: academicSetting.subject,
+      officialAnnualJP: officialRule.annualJP,
+    });
+    effectiveWeeksCount = availableJP.effectiveWeeksRounded;
+    availableJPCount = availableJP.availableJP;
+  } else {
+    calendarStatusNote = 'Data kalender belum dikonfigurasi pada sistem';
+  }
 
-  const availableJP = calculateAvailableJP({
-    subjectWeeklyJP: weeklyJP,
-    effectiveLearningDays: effectiveResult.effectiveLearningDays || 90,
-    schoolDaysPerWeek,
-    semester: semesterKey,
-    academicYear: academicSetting.academicYear || '2026/2027',
-    level: academicSetting.level,
-    grade: academicSetting.grade,
-    subject: academicSetting.subject,
-    officialAnnualJP: officialRule.annualJP,
-  });
+  // Normalize all allocations from context
+  const normalizedAllocations = (timeAllocations || []).map(normalizeLearningAllocation);
 
   // 1. Header
   docChildren.push(
@@ -79,10 +87,10 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
   // 2. Identity Box
   docChildren.push(
     createIdentityMetadataTable(school, profile, academicSetting, [
-      ['Alokasi Intrakurikuler per Minggu', `: ${weeklyJP} JP / Minggu`],
-      ['Minggu Efektif Semester', `: ${availableJP.effectiveWeeksRounded} Minggu (${effectiveResult.effectiveLearningDays || 90} Hari Efektif)`],
-      ['Total Alokasi Waktu Semester', `: ${availableJP.availableJP} JP`],
-      ['Dasar Regulasi Struktur', `: ${officialRule.regulation}`],
+      ['Alokasi Intrakurikuler per Minggu', `: ${weeklyJP !== null ? `${weeklyJP} JP / Minggu` : 'Input Manual Diperlukan'}`],
+      ['Minggu Efektif Semester', `: ${hasCalendar ? `${effectiveWeeksCount} Minggu (${effectiveDaysCount} Hari Efektif)` : calendarStatusNote}`],
+      ['Total Kapasitas JP Tersedia', `: ${hasCalendar ? `${availableJPCount} JP` : '-'}`],
+      ['Dasar Regulasi Struktur', `: ${officialRule.regulation || 'Struktur Kustom Guru'}`],
     ])
   );
   docChildren.push(new Paragraph({ spacing: { after: 180 } }));
@@ -94,7 +102,7 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
       spacing: { before: 120, after: 80 },
       children: [
         new TextRun({
-          text: 'Matriks Distribusi Alokasi Waktu Pembelajaran Mingguan',
+          text: 'Matriks Distribusi Alokasi Waktu Pembelajaran Bulanan',
           bold: true,
           size: 22,
           font: 'Arial',
@@ -104,7 +112,6 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
     })
   );
 
-  // Top header row: No, Kode TP/KD, Materi/Tujuan, Alokasi JP, followed by 6 month cells
   const isK13Curriculum = academicSetting.curriculumType === 'K13' || academicSetting.curriculum === 'Kurikulum 2013';
   const monthHeaderCells = months.map((m) => createTableHeaderCell(m, 7));
 
@@ -123,19 +130,35 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
     ],
   });
 
-  let totalJp = 0;
+  let totalAllocatedJPSum = 0;
   let dataRows: TableRow[] = [];
 
   if (isK13Curriculum) {
     const k13Items = context.k13Analysis?.items || [];
     dataRows = k13Items.map((item, idx) => {
-      const jp = weeklyJP;
-      totalJp += jp;
+      // Find matching allocation by sourceId (item.id or item.kd)
+      const matchingAlloc = normalizedAllocations.find(
+        (a) => a.sourceId === item.id || a.sourceId === item.kd
+      );
 
-      const targetMonthIdx = idx % 6;
+      const allocatedJP = matchingAlloc?.allocatedJP ?? (item.alokasiJp ? Number(item.alokasiJp) : null);
+      if (allocatedJP !== null) {
+        totalAllocatedJPSum += allocatedJP;
+      }
+
+      // Determine month: strictly from allocation.month or derived startWeek.
+      // If month is undefined, NEVER use index fallback. Display '-'
+      let targetMonthIdx: number | null = null;
+      if (matchingAlloc?.month && matchingAlloc.month >= 1 && matchingAlloc.month <= 6) {
+        targetMonthIdx = matchingAlloc.month - 1;
+      } else if (matchingAlloc?.startWeek && matchingAlloc.startWeek > 0) {
+        // Approximate month from startWeek only if startWeek is explicitly set (e.g. week 1-4 = month 0, week 5-8 = month 1, ...)
+        targetMonthIdx = Math.min(5, Math.max(0, Math.floor((matchingAlloc.startWeek - 1) / 3.5)));
+      }
+
       const monthDistributionCells = months.map((_, mIdx) => {
-        const isTarget = mIdx === targetMonthIdx;
-        return createTableDataCell(isTarget ? `${jp}` : '-', 7, AlignmentType.CENTER);
+        const isTarget = targetMonthIdx !== null && mIdx === targetMonthIdx;
+        return createTableDataCell(isTarget && allocatedJP !== null ? `${allocatedJP}` : '-', 7, AlignmentType.CENTER);
       });
 
       return new TableRow({
@@ -156,7 +179,7 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
               }),
             ],
           }),
-          createTableDataCell(`${jp} JP`, 10, AlignmentType.CENTER, true),
+          createTableDataCell(allocatedJP !== null ? `${allocatedJP} JP` : '-', 10, AlignmentType.CENTER, true),
           ...monthDistributionCells,
         ],
       });
@@ -165,14 +188,27 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
     const items = atp?.items && atp.items.length > 0 ? atp.items : [];
 
     dataRows = items.map((item, idx) => {
-      const jp = Number(item.jp) || weeklyJP;
-      totalJp += jp;
+      // Find matching allocation by sourceId (item.id or item.tpCode)
+      const matchingAlloc = normalizedAllocations.find(
+        (a) => a.sourceId === item.id || a.sourceId === item.tpCode || a.tpId === item.id || a.atpItemId === item.id
+      );
 
-      // Distribute JP across the 6 months in a realistic staggered pattern
-      const targetMonthIdx = idx % 6;
+      const allocatedJP = matchingAlloc?.allocatedJP ?? (item.jp ? Number(item.jp) : null);
+      if (allocatedJP !== null) {
+        totalAllocatedJPSum += allocatedJP;
+      }
+
+      // Determine month strictly from allocation:
+      let targetMonthIdx: number | null = null;
+      if (matchingAlloc?.month && matchingAlloc.month >= 1 && matchingAlloc.month <= 6) {
+        targetMonthIdx = matchingAlloc.month - 1;
+      } else if (matchingAlloc?.startWeek && matchingAlloc.startWeek > 0) {
+        targetMonthIdx = Math.min(5, Math.max(0, Math.floor((matchingAlloc.startWeek - 1) / 3.5)));
+      }
+
       const monthDistributionCells = months.map((_, mIdx) => {
-        const isTarget = mIdx === targetMonthIdx;
-        return createTableDataCell(isTarget ? `${jp}` : '-', 7, AlignmentType.CENTER);
+        const isTarget = targetMonthIdx !== null && mIdx === targetMonthIdx;
+        return createTableDataCell(isTarget && allocatedJP !== null ? `${allocatedJP}` : '-', 7, AlignmentType.CENTER);
       });
 
       return new TableRow({
@@ -193,28 +229,40 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
               }),
             ],
           }),
-          createTableDataCell(`${jp} JP`, 10, AlignmentType.CENTER, true),
+          createTableDataCell(allocatedJP !== null ? `${allocatedJP} JP` : '-', 10, AlignmentType.CENTER, true),
           ...monthDistributionCells,
         ],
       });
     });
   }
 
-  // Asesmen Sumatif & Evaluasi Row
-  const evaluasiJp = Math.max(2, weeklyJP);
-  totalJp += evaluasiJp;
-  const evaluasiMonthCells = months.map((_, mIdx) =>
-    createTableDataCell(mIdx === 5 ? `${evaluasiJp}` : '-', 7, AlignmentType.CENTER)
-  );
+  // Explicit Assessment Allocations ONLY
+  const assessmentAllocs = normalizedAllocations.filter((a) => a.sourceType === 'ASSESSMENT');
+  const assessmentRows: TableRow[] = [];
 
-  const evaluasiRow = new TableRow({
-    children: [
-      createTableDataCell(`${dataRows.length + 1}`, 5, AlignmentType.CENTER),
-      createTableDataCell('-', isK13Curriculum ? 15 : 10, AlignmentType.CENTER),
-      createTableDataCell('Asesmen Sumatif Akhir Semester & Tindak Lanjut Evaluasi', isK13Curriculum ? 28 : 33),
-      createTableDataCell(`${evaluasiJp} JP`, 10, AlignmentType.CENTER, true),
-      ...evaluasiMonthCells,
-    ],
+  assessmentAllocs.forEach((aAlloc, aIdx) => {
+    const aJp = aAlloc.allocatedJP || 0;
+    totalAllocatedJPSum += aJp;
+    let aMonthIdx: number | null = null;
+    if (aAlloc.month && aAlloc.month >= 1 && aAlloc.month <= 6) {
+      aMonthIdx = aAlloc.month - 1;
+    }
+
+    const aMonthCells = months.map((_, mIdx) =>
+      createTableDataCell(aMonthIdx !== null && mIdx === aMonthIdx ? `${aJp}` : '-', 7, AlignmentType.CENTER)
+    );
+
+    assessmentRows.push(
+      new TableRow({
+        children: [
+          createTableDataCell(`${dataRows.length + aIdx + 1}`, 5, AlignmentType.CENTER),
+          createTableDataCell('ASESMEN', isK13Curriculum ? 15 : 10, AlignmentType.CENTER),
+          createTableDataCell(aAlloc.notes || 'Asesmen Sumatif / Evaluasi Pembelajaran', isK13Curriculum ? 28 : 33),
+          createTableDataCell(`${aJp} JP`, 10, AlignmentType.CENTER, true),
+          ...aMonthCells,
+        ],
+      })
+    );
   });
 
   // Total Summary Row
@@ -222,7 +270,7 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
   const totalRow = new TableRow({
     children: [
       new TableCell({
-        width: { size: isK13Curriculum ? 48 : 48, type: WidthType.PERCENTAGE },
+        width: { size: 48, type: WidthType.PERCENTAGE },
         columnSpan: 3,
         margins: { top: 100, bottom: 100, left: 120, right: 120 },
         children: [
@@ -230,7 +278,7 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
             alignment: AlignmentType.RIGHT,
             children: [
               new TextRun({
-                text: 'TOTAL JAM SEMESTER: ',
+                text: 'TOTAL ALOKASI JP TERCATAT: ',
                 bold: true,
                 size: 20,
                 font: 'Arial',
@@ -239,25 +287,37 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
           }),
         ],
       }),
-      createTableDataCell(`${totalJp} JP`, 10, AlignmentType.CENTER, true),
+      createTableDataCell(`${totalAllocatedJPSum} JP`, 10, AlignmentType.CENTER, true),
       ...totalMonthCells,
     ],
   });
 
   const promesTable = new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
-    rows: [tableHeaderRow1, ...dataRows, evaluasiRow, totalRow],
+    rows: [tableHeaderRow1, ...dataRows, ...assessmentRows, totalRow],
   });
 
   docChildren.push(promesTable);
 
-  // Keterangan Pelaksanaan
+  // Keterangan Pelaksanaan & Status Alokasi
+  const remainingJP = hasCalendar ? availableJPCount - totalAllocatedJPSum : null;
+  let allocationStatusText = 'Belum dilakukan verifikasi kalender.';
+  if (remainingJP !== null) {
+    if (remainingJP > 0) {
+      allocationStatusText = `Sisa JP Belum Dialokasikan: ${remainingJP} JP dari kapasitas ${availableJPCount} JP.`;
+    } else if (remainingJP === 0) {
+      allocationStatusText = `Alokasi Seimbang: Tepat ${totalAllocatedJPSum} JP sesuai kapasitas tersedia.`;
+    } else {
+      allocationStatusText = `Defisit JP: Alokasi (${totalAllocatedJPSum} JP) melebihi kapasitas tersedia (${availableJPCount} JP) sebesar ${Math.abs(remainingJP)} JP.`;
+    }
+  }
+
   docChildren.push(
     new Paragraph({
       spacing: { before: 140, after: 60 },
       children: [
         new TextRun({
-          text: 'Catatan Pelaksanaan:',
+          text: 'Status & Catatan Pelaksanaan:',
           bold: true,
           size: 19,
           font: 'Arial',
@@ -268,7 +328,7 @@ export async function generatePROMES(context: DocumentGenerationContext): Promis
       spacing: { after: 120 },
       children: [
         new TextRun({
-          text: '1. Angka pada kolom bulan menunjukkan alokasi jam pelajaran (JP) intrakurikuler tatap muka per unit materi.\n2. Distribusi waktu dirancang berdasar kalender pendidikan satuan pendidikan dan panduan resmi Kemendikdasmen.',
+          text: `• Status Alokasi Waktu: ${allocationStatusText}\n• Angka pada kolom bulan menunjukkan Jam Pelajaran (JP) intrakurikuler tatap muka yang telah dijadwalkan guru.\n• Item tanpa alokasi bulan diberi tanda strip (-) yang berarti belum dijadwalkan pada kalender aktif.`,
           size: 18,
           font: 'Arial',
           italics: true,

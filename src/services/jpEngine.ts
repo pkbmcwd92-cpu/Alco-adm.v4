@@ -1180,7 +1180,7 @@ export function getSubjectJP(query: SubjectJPQuery): SubjectJPResult {
 
   // 4. Jika ditemukan dalam database resmi
   if (matchedRule && matchedRule.verificationStatus === 'VERIFIED') {
-    const weeklyJP = matchedRule.intrakurikulerWeeklyJP ?? matchedRule.weeklyJP ?? 4;
+    const weeklyJP = matchedRule.intrakurikulerWeeklyJP ?? matchedRule.weeklyJP ?? null;
     const annualJP = matchedRule.intrakurikulerAnnualJP ?? matchedRule.annualJP;
     const kokurikulerJP = matchedRule.kokurikulerAnnualJP ?? matchedRule.kokurikulerJP;
     const totalAnnualJP = matchedRule.totalAnnualJP;
@@ -1204,7 +1204,7 @@ export function getSubjectJP(query: SubjectJPQuery): SubjectJPResult {
       effectiveFrom: matchedRule.effectiveFrom,
       curriculumType: matchedRule.curriculumType,
       matchedRule,
-      explanation: `Alokasi intrakurikuler resmi: ${weeklyJP} JP/minggu (${annualJP ? `${annualJP} JP/tahun` : ''}${kokurikulerJP ? `, Kokurikuler/P5: ${kokurikulerJP} JP/tahun` : ''}) berdasarkan ${matchedRule.regulation}.`,
+      explanation: `Alokasi intrakurikuler resmi: ${weeklyJP ?? '-'} JP/minggu (${annualJP ? `${annualJP} JP/tahun` : ''}${kokurikulerJP ? `, Kokurikuler/P5: ${kokurikulerJP} JP/tahun` : ''}) berdasarkan ${matchedRule.regulation}.`,
     };
   }
 
@@ -1419,10 +1419,41 @@ export function calculateAvailableJP(params: {
 }
 
 /**
+ * Normalisasi objek alokasi ke model shared LearningTimeAllocation
+ */
+export function normalizeLearningAllocation(raw: Partial<LearningTimeAllocation | TimeAllocation>): LearningTimeAllocation {
+  const allocatedJP = Number(raw.allocatedJP ?? raw.jp ?? 0);
+  const startWeek = raw.startWeek ?? raw.weekNumber;
+  const sourceId = raw.sourceId ?? raw.tpId ?? raw.atpItemId ?? raw.id ?? '';
+  let sourceType = raw.sourceType;
+  if (!sourceType) {
+    if (raw.tpId || raw.atpItemId) sourceType = 'ATP_ITEM';
+    else sourceType = 'TP';
+  }
+  return {
+    id: raw.id || `alloc-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    academicSettingId: raw.academicSettingId || '',
+    sourceType,
+    sourceId,
+    semester: (raw.semester === '2' || raw.semester === 'Semester 2') ? '2' : '1',
+    allocatedJP,
+    startWeek,
+    endWeek: raw.endWeek ?? startWeek,
+    month: raw.month,
+    monthName: raw.monthName,
+    notes: raw.notes,
+    tpId: raw.tpId || (sourceType === 'TP' || sourceType === 'ATP_ITEM' ? sourceId : undefined),
+    atpItemId: raw.atpItemId || (sourceType === 'ATP_ITEM' ? sourceId : undefined),
+    weekNumber: startWeek,
+    jp: allocatedJP,
+  };
+}
+
+/**
  * Validasi Keseluruhan Distribusi Alokasi Waktu (TP / KD) terhadap JP Tersedia
  */
 export function validateTimeAllocations(
-  allocations: Array<{ jp?: number; allocatedJP?: number }>,
+  allocations: Array<Partial<LearningTimeAllocation | TimeAllocation>>,
   availableJP: number
 ): TimeAllocationValidationResult {
   const totalAllocatedJP = allocations.reduce((sum, item) => {
@@ -1437,11 +1468,11 @@ export function validateTimeAllocations(
 
   if (remainingJP > 0) {
     status = 'UNDER_ALLOCATED';
-    statusLabel = 'Alokasi Belum Lengkap';
+    statusLabel = 'Sisa JP Belum Dialokasikan';
     statusDescription = `Terdapat sisa ${remainingJP} JP yang belum dialokasikan dari total ${availableJP} JP tersedia.`;
   } else if (remainingJP < 0) {
     status = 'OVER_ALLOCATED';
-    statusLabel = 'Alokasi Melebihi JP Tersedia';
+    statusLabel = 'Defisit JP';
     statusDescription = `Total alokasi (${totalAllocatedJP} JP) melampaui JP tersedia (${availableJP} JP) sebesar ${Math.abs(remainingJP)} JP.`;
   }
 
