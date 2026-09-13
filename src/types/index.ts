@@ -301,7 +301,8 @@ export interface AttendanceRecord {
   note?: string;
 }
 
-export type KKTPApproach = 'deskripsi' | 'rubrik' | 'skala_interval';
+export type KKTPApproach = 'deskripsi' | 'rubrik' | 'skala_interval' | 'legacy_kkm';
+export type AssessmentCriterionMode = 'DESCRIPTION' | 'RUBRIC' | 'INTERVAL' | 'LEGACY_KKM';
 
 export interface KKTPLevel {
   level: string; // "Perlu Bimbingan", "Cukup", "Baik", "Sangat Baik"
@@ -313,13 +314,66 @@ export interface KKTPLevel {
 export interface AssessmentCriterion {
   id: string;
   academicSettingId: string;
-  tpId: string; // Terhubung langsung ke TP
+  tpId: string; // Terhubung ke TP (Merdeka) atau KD (K13)
   description: string;
   approach: KKTPApproach;
+  criterionMode?: AssessmentCriterionMode;
   indicators: string[];
   levels: KKTPLevel[];
   passingThreshold?: number; // Nilai KKM/Interval minimum tercapai (misal: 75)
   notes?: string;
+  updatedAt: string;
+}
+
+// ==========================================
+// MODEL GENERIK PERENCANAAN PEMBELAJARAN
+// (Permendikbudristek 12/2024 & Permendikdasmen 13/2025)
+// ==========================================
+export interface LearningPlanObjective {
+  id: string;
+  code?: string;
+  statement: string;
+  materialScope?: string;
+}
+
+export interface LearningPlanStep {
+  stepName: 'Pendahuluan' | 'Kegiatan Inti' | 'Penutup' | string;
+  durationMinutes?: number;
+  description: string;
+}
+
+export interface LearningPlanAssessment {
+  technique: string; // e.g. "Tes Tertulis", "Kinerja", "Observasi"
+  instrument: string; // e.g. "Rubrik", "Daftar Cek", "Soal Uraian"
+  type: 'formatif' | 'sumatif' | 'diagnostik' | string;
+}
+
+/**
+ * Model generik internal perencanaan pembelajaran.
+ * Komponen minimal sesuai regulasi:
+ * 1. Tujuan Pembelajaran
+ * 2. Langkah/Kegiatan Pembelajaran
+ * 3. Asesmen / Rencana Penilaian
+ */
+export interface LearningPlan {
+  id: string;
+  academicSettingId: string;
+  curriculumType: CurriculumType;
+  title: string;
+  objectives: LearningPlanObjective[];
+  learningSteps: LearningPlanStep[];
+  assessmentPlan: LearningPlanAssessment[];
+  materials?: string[];
+  resources?: string[];
+  differentiation?: {
+    content?: string;
+    process?: string;
+    product?: string;
+  };
+  reflection?: {
+    teacherReflection?: string;
+    studentReflection?: string;
+  };
   updatedAt: string;
 }
 
@@ -400,9 +454,11 @@ export interface K13AnalysisItem {
   skl: string;
   ki: string;
   kd: string;
-  indikator: string;
-  materi: string;
-  kegiatan: string;
+  tujuanPembelajaran?: string; // Penjabaran Tujuan Pembelajaran K13
+  indikator: string; // Indikator Pencapaian Kompetensi (IPK)
+  materi: string; // Materi Pokok / Esensial
+  kegiatan: string; // Kegiatan Pembelajaran
+  alokasiJp?: number; // Alokasi JP per KD/Topik
   penilaian?: string;
 }
 
@@ -569,6 +625,7 @@ export type WorkflowStepId =
   | 'atp'
   | 'k13-kd'
   | 'k13-indikator'
+  | 'k13-tujuan'
   | 'k13-kkm'
   | 'admin';
 

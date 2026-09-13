@@ -30,6 +30,7 @@ import {
 } from '../data/curriculumDefaults';
 import { getCurriculumType, getSubjectJP } from '../services/jpEngine';
 import { lookupOfficialWeeklyJP } from '../services/curriculumRules';
+import { isK13 } from '../services/curriculumRouter';
 import { TeacherTeachingLoadModal } from './TeacherTeachingLoadModal';
 
 interface AcademicSettingsProps {
@@ -392,29 +393,54 @@ export const AcademicSettings: React.FC<AcademicSettingsProps> = ({
               </select>
             </div>
 
-            {/* Read-Only Derived Phase */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-blue-600" />
-                <span>Fase Capaian (Otomatis)</span>
-              </label>
-              <div
-                id="display-derived-phase"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-blue-200 bg-blue-50/70 text-blue-950 font-bold text-sm flex items-center justify-between"
-              >
-                <span className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-blue-600"></span>
-                  {formData.phase}
-                </span>
-                <span className="text-[11px] font-semibold text-blue-700 bg-blue-100/80 px-2 py-0.5 rounded-md">
-                  Derived
-                </span>
+            {/* Read-Only Derived Phase (Merdeka) vs Struktur K13 */}
+            {isK13(formData) ? (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Struktur Kurikulum 2013</span>
+                </label>
+                <div
+                  id="display-k13-structure"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 text-slate-800 font-medium text-sm flex items-center justify-between"
+                >
+                  <span className="flex items-center gap-2 text-xs text-slate-700 font-semibold">
+                    <span className="w-2 h-2 rounded-full bg-slate-500"></span>
+                    Struktur KD & Standar Isi
+                  </span>
+                  <span className="text-[11px] font-semibold text-slate-600 bg-slate-200/80 px-2 py-0.5 rounded-md">
+                    K13 (Tanpa Fase)
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
+                  <Info className="w-3 h-3 text-slate-400 shrink-0" />
+                  <span>K13 menggunakan tingkatan Kelas ({formData.grade}) tanpa sistem Fase.</span>
+                </p>
               </div>
-              <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
-                <Info className="w-3 h-3 text-slate-400 shrink-0" />
-                <span>{formData.level} {formData.grade} → {formData.phase}</span>
-              </p>
-            </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5 flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Fase Capaian (Otomatis)</span>
+                </label>
+                <div
+                  id="display-derived-phase"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-blue-200 bg-blue-50/70 text-blue-950 font-bold text-sm flex items-center justify-between"
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                    {formData.phase}
+                  </span>
+                  <span className="text-[11px] font-semibold text-blue-700 bg-blue-100/80 px-2 py-0.5 rounded-md">
+                    Derived
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
+                  <Info className="w-3 h-3 text-slate-400 shrink-0" />
+                  <span>{formData.level} {formData.grade} → {formData.phase}</span>
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Row 3: Mata Pelajaran & Alokasi JP */}

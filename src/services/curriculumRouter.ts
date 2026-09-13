@@ -103,12 +103,14 @@ export const MERDEKA_WORKFLOW_STEPS: WorkflowStepItem[] = [
 ];
 
 /**
+ * KURIKULUM 2013 (K13) WORKFLOW
+ * Struktur berbasis regulasi dan panduan PPA K13:
  * 01 Profil
  * 02 Data Pembelajaran
  * 03 SKL / KI / KD
- * 04 Indikator
- * 05 KKM
- * 06 Administrasi
+ * 04 Analisis KD (Telaah KD & Materi Pokok)
+ * 05 Tujuan Pembelajaran & Indikator (IPK)
+ * 06 Administrasi (Perencanaan Waktu, Kriteria Ketercapaian/KKM, Asesmen & Nilai, Dokumen)
  */
 export const K13_WORKFLOW_STEPS: WorkflowStepItem[] = [
   {
@@ -123,7 +125,7 @@ export const K13_WORKFLOW_STEPS: WorkflowStepItem[] = [
     number: '02',
     title: 'DATA PEMBELAJARAN',
     shortLabel: 'Data',
-    description: 'Kelas, Mapel & JP',
+    description: 'Kelas, Mapel & Alokasi JP',
   },
   {
     id: 'k13-kd',
@@ -135,16 +137,16 @@ export const K13_WORKFLOW_STEPS: WorkflowStepItem[] = [
   {
     id: 'k13-indikator',
     number: '04',
-    title: 'INDIKATOR',
-    shortLabel: 'Indikator',
-    description: 'Indikator (IPK) & Materi Pembelajaran',
+    title: 'ANALISIS KD',
+    shortLabel: 'Analisis KD',
+    description: 'Telaah KD & Ruang Lingkup Materi',
   },
   {
-    id: 'k13-kkm',
+    id: 'k13-tujuan',
     number: '05',
-    title: 'KKM',
-    shortLabel: 'KKM',
-    description: 'Kriteria Ketuntasan Minimal',
+    title: 'TUJUAN & INDIKATOR',
+    shortLabel: 'Tujuan & IPK',
+    description: 'Tujuan Pembelajaran & Indikator Pencapaian',
   },
   {
     id: 'admin',
@@ -203,7 +205,7 @@ export function isStepAllowed(stepId: WorkflowStepId, curriculumType: Curriculum
   if (curriculumType === 'KURIKULUM_MERDEKA') {
     return ['cp', 'cp-analysis', 'tp', 'atp'].includes(stepId);
   } else {
-    return ['k13-kd', 'k13-indikator', 'k13-kkm'].includes(stepId);
+    return ['k13-kd', 'k13-indikator', 'k13-tujuan', 'k13-kkm'].includes(stepId);
   }
 }
 
@@ -217,12 +219,12 @@ export function resolveStep(stepId: WorkflowStepId, curriculumType: CurriculumTy
   if (curriculumType === 'K13') {
     if (stepId === 'cp' || stepId === 'cp-analysis') return 'k13-kd';
     if (stepId === 'tp') return 'k13-indikator';
-    if (stepId === 'atp') return 'k13-kkm';
+    if (stepId === 'atp') return 'k13-tujuan';
     return 'k13-kd';
   } else {
     if (stepId === 'k13-kd') return 'cp';
-    if (stepId === 'k13-indikator') return 'tp';
-    if (stepId === 'k13-kkm') return 'atp';
+    if (stepId === 'k13-indikator') return 'cp-analysis';
+    if (stepId === 'k13-tujuan' || stepId === 'k13-kkm') return 'tp';
     return 'cp';
   }
 }

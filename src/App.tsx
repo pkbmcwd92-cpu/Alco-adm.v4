@@ -405,8 +405,23 @@ export function App() {
               school={activeSchool}
               onSaveAnalysis={handleSaveK13Analysis}
               onSaveKKM={handleSaveK13KKM}
-              onNextStep={() => setCurrentStep('k13-kkm')}
+              onNextStep={() => setCurrentStep('k13-tujuan')}
               onBackToStep={() => setCurrentStep('k13-kd')}
+            />
+          )}
+
+          {currentStep === 'k13-tujuan' && (
+            <K13Manager
+              mode="tujuan"
+              k13Analysis={k13Analysis}
+              k13KKM={k13KKM}
+              academicSetting={activeAcademicSetting}
+              profile={activeProfile}
+              school={activeSchool}
+              onSaveAnalysis={handleSaveK13Analysis}
+              onSaveKKM={handleSaveK13KKM}
+              onNextStep={() => setCurrentStep('admin')}
+              onBackToStep={() => setCurrentStep('k13-indikator')}
             />
           )}
 
@@ -421,7 +436,7 @@ export function App() {
               onSaveAnalysis={handleSaveK13Analysis}
               onSaveKKM={handleSaveK13KKM}
               onNextStep={() => setCurrentStep('admin')}
-              onBackToStep={() => setCurrentStep('k13-indikator')}
+              onBackToStep={() => setCurrentStep('k13-tujuan')}
             />
           )}
 

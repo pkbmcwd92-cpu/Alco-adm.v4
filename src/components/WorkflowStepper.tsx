@@ -77,10 +77,12 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
 
   // K13 steps completion & gating
   const hasK13KD = !!(k13Analysis?.items && k13Analysis.items.length > 0);
-  const hasK13Indikator = !!(
-    k13Analysis?.items && k13Analysis.items.some((i) => i.indikator && i.indikator.trim().length > 0)
+  const hasK13Analisis = !!(
+    k13Analysis?.items && k13Analysis.items.some((i) => (i.materi && i.materi.trim().length > 0) || (i.kegiatan && i.kegiatan.trim().length > 0))
   );
-  const hasK13KKM = !!(k13KKM?.items && k13KKM.items.length > 0);
+  const hasK13TujuanIndikator = !!(
+    k13Analysis?.items && k13Analysis.items.some((i) => (i.indikator && i.indikator.trim().length > 0) || (i.tujuanPembelajaran && i.tujuanPembelajaran.trim().length > 0))
+  );
 
   // Build steps list depending on curriculum
   type StepItem = {
@@ -126,22 +128,22 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
         {
           id: 'k13-indikator',
           num: '04',
-          title: 'INDIKATOR',
-          sub: 'IPK & Materi Pokok',
+          title: 'ANALISIS KD',
+          sub: 'Telaah & Materi Pokok',
           icon: <ListChecks className="w-4 h-4" />,
-          isComplete: hasK13Indikator,
+          isComplete: hasK13Analisis,
           isLocked: !hasK13KD,
           lockReason: 'Memerlukan data SKL / KI / KD terlebih dahulu',
         },
         {
-          id: 'k13-kkm',
+          id: 'k13-tujuan',
           num: '05',
-          title: 'KKM',
-          sub: 'Kriteria Ketuntasan',
+          title: 'TUJUAN & INDIKATOR',
+          sub: 'Tujuan Pembelajaran & IPK',
           icon: <Calculator className="w-4 h-4" />,
-          isComplete: hasK13KKM,
+          isComplete: hasK13TujuanIndikator,
           isLocked: !hasK13KD,
-          lockReason: 'Memerlukan data KD terlebih dahulu',
+          lockReason: 'Memerlukan data KD & Analisis terlebih dahulu',
         },
         {
           id: 'admin',
@@ -149,9 +151,9 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
           title: 'ADMINISTRASI',
           sub: 'Perencanaan & Nilai',
           icon: <FileCheck2 className="w-4 h-4" />,
-          isComplete: hasK13KKM,
+          isComplete: hasK13TujuanIndikator || hasK13KD,
           isLocked: !hasK13KD,
-          lockReason: 'Memerlukan data Analisis K13 terlebih dahulu',
+          lockReason: 'Memerlukan data KD & Analisis terlebih dahulu',
         },
       ]
     : [
@@ -245,7 +247,8 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
             <h2 className="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2">
               <span>{academicSetting.subject || 'Mata Pelajaran'}</span>
               <span className="text-slate-400 font-normal text-sm">
-                • {academicSetting.grade} ({academicSetting.phase})
+                • {academicSetting.grade}
+                {!isK13Active && academicSetting.phase ? ` (${academicSetting.phase})` : ''}
               </span>
             </h2>
             <p className="text-xs text-blue-200 flex items-center gap-1.5">
@@ -269,9 +272,13 @@ export const WorkflowStepper: React.FC<WorkflowStepperProps> = ({
               </span>
             </div>
             <div className="bg-slate-800/60 rounded-xl p-2.5 border border-slate-700/60">
-              <span className="text-[10px] text-slate-400 uppercase font-semibold block">Kelas & Fase</span>
+              <span className="text-[10px] text-slate-400 uppercase font-semibold block">
+                {isK13Active ? 'Tingkat / Kelas' : 'Kelas & Fase'}
+              </span>
               <span className="text-xs font-bold text-blue-300 truncate block">
-                {academicSetting.grade} • {academicSetting.phase}
+                {isK13Active
+                  ? academicSetting.grade
+                  : `${academicSetting.grade} • ${academicSetting.phase}`}
               </span>
             </div>
             <div className="bg-slate-800/60 rounded-xl p-2.5 border border-slate-700/60">

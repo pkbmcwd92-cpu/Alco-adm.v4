@@ -1,27 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   CalendarDays,
   Users,
   Award,
   FileSpreadsheet,
   LifeBuoy,
-  BookOpen,
   FileText,
+  Clock,
   School,
   User,
   GraduationCap,
-  Clock,
-  CheckCircle2,
+  BookOpen,
 } from 'lucide-react';
-import { isK13 } from '../../services/curriculumRouter';
 import {
   TeacherProfile,
   SchoolData,
+  AdministrationWorkspace,
   AcademicSetting,
   CPData,
   TPData,
   ATPData,
-  AdministrationWorkspace,
   AppDocumentRecord,
   Student,
   AcademicCalendar,
@@ -37,33 +35,31 @@ import {
   K13Analysis,
   K13KKM,
 } from '../../types';
-
 import { TimePlanningManager } from './TimePlanningManager';
 import { AttendanceManager } from './AttendanceManager';
 import { KKTPManager } from './KKTPManager';
 import { AssessmentGradeManager } from './AssessmentGradeManager';
 import { FollowUpManager } from './FollowUpManager';
-import { K13Manager } from './K13Manager';
 import { AdminDocsExport } from '../AdminDocsExport';
+import { isK13 } from '../../services/curriculumRouter';
 
 export type AdministrationTab =
   | 'time_planning'
-  | 'attendance'
   | 'kktp'
   | 'assessment_grades'
+  | 'attendance'
   | 'follow_up'
-  | 'k13'
   | 'export_docs';
 
 interface AdministrationHubProps {
-  school: SchoolData;
   profile: TeacherProfile;
-  academicSetting: AcademicSetting;
+  school: SchoolData;
   workspace?: AdministrationWorkspace;
-  cp: CPData;
-  tp: TPData;
-  atp: ATPData;
-  documents?: AppDocumentRecord[];
+  academicSetting: AcademicSetting;
+  cp?: CPData;
+  tp?: TPData;
+  atp?: ATPData;
+  documents: AppDocumentRecord[];
   students: Student[];
   calendar: AcademicCalendar;
   calendarDays: CalendarDay[];
@@ -89,7 +85,7 @@ interface AdministrationHubProps {
   onSaveEnrichments: (records: EnrichmentRecord[]) => void;
   onSaveK13Analysis: (analysis: K13Analysis) => void;
   onSaveK13KKM: (kkm: K13KKM) => void;
-  onBackToStep: (stepId: 'profile' | 'academic' | 'cp' | 'tp' | 'atp') => void;
+  onBackToStep: (stepId: any) => void;
   onUpdateDocuments?: (updatedDocs: AppDocumentRecord[]) => void;
 }
 
@@ -131,31 +127,31 @@ export const AdministrationHub: React.FC<AdministrationHubProps> = ({
   onUpdateDocuments,
 }) => {
   const isK13Active = isK13(academicSetting);
+  const [activeTab, setActiveTab] = useState<AdministrationTab>(initialTab);
 
-  // If in K13 mode and current activeTab is KKTP, switch to assessment_grades or time_planning
-  // If in Merdeka mode and current activeTab is k13, switch to kktp
-  const [activeTab, setActiveTab] = useState<AdministrationTab>(() => {
-    if (initialTab === 'kktp' && isK13Active) return 'assessment_grades';
-    if (initialTab === 'k13' && !isK13Active) return 'kktp';
-    return initialTab;
-  });
-
-  useEffect(() => {
-    if (isK13Active && activeTab === 'kktp') {
-      setActiveTab('assessment_grades');
-    } else if (!isK13Active && activeTab === 'k13') {
-      setActiveTab('kktp');
-    }
-  }, [isK13Active, activeTab]);
-
-  const allTabs = [
+  const tabs = [
     {
       id: 'time_planning' as AdministrationTab,
       label: 'Perencanaan Waktu',
-      sublabel: 'Kalender & Alokasi',
+      sublabel: 'Kalender & Alokasi JP',
       icon: CalendarDays,
       badge: `${calendar?.effectiveWeeks || 18} Mg`,
-      show: true,
+    },
+    {
+      id: 'kktp' as AdministrationTab,
+      label: isK13Active ? 'Kriteria Ketercapaian' : 'Kriteria Capaian (KKTP)',
+      sublabel: isK13Active ? 'Kriteria KD / KKM' : 'Standar Tuntas TP',
+      icon: Award,
+      badge: isK13Active
+        ? `${k13Analysis?.items?.length || 0} KD`
+        : `${assessmentCriteria?.length || tp?.items?.length || 0} TP`,
+    },
+    {
+      id: 'assessment_grades' as AdministrationTab,
+      label: isK13Active ? 'Penilaian KD & Rapor' : 'Asesmen & Nilai',
+      sublabel: isK13Active ? 'Daftar Nilai K13' : 'Formatif & Sumatif',
+      icon: FileSpreadsheet,
+      badge: `${assessments?.length || 0} Asm`,
     },
     {
       id: 'attendance' as AdministrationTab,
@@ -163,31 +159,6 @@ export const AdministrationHub: React.FC<AdministrationHubProps> = ({
       sublabel: 'Presensi Siswa',
       icon: Users,
       badge: `${students?.length || 0} Siswa`,
-      show: true,
-    },
-    {
-      id: 'kktp' as AdministrationTab,
-      label: 'KKTP',
-      sublabel: 'Kriteria Capaian',
-      icon: Award,
-      badge: `${assessmentCriteria?.length || tp?.items?.length || 0} TP`,
-      show: !isK13Active, // ONLY show in Kurikulum Merdeka
-    },
-    {
-      id: 'k13' as AdministrationTab,
-      label: 'Ringkasan K13',
-      sublabel: 'SKL/KI/KD & KKM',
-      icon: BookOpen,
-      badge: `${k13Analysis?.items?.length || 0} KD`,
-      show: isK13Active, // ONLY show in K13
-    },
-    {
-      id: 'assessment_grades' as AdministrationTab,
-      label: isK13Active ? 'Daftar Nilai K13' : 'Asesmen & Nilai',
-      sublabel: isK13Active ? 'Nilai KD & Rapor' : 'Daftar Nilai Rapor',
-      icon: FileSpreadsheet,
-      badge: `${assessments?.length || 0} Asm`,
-      show: true,
     },
     {
       id: 'follow_up' as AdministrationTab,
@@ -195,24 +166,20 @@ export const AdministrationHub: React.FC<AdministrationHubProps> = ({
       sublabel: 'Remedial & Pengayaan',
       icon: LifeBuoy,
       badge: `${remedials.length + enrichments.length}`,
-      show: true,
     },
     {
       id: 'export_docs' as AdministrationTab,
       label: 'Pusat Dokumen',
       sublabel: isK13Active ? 'Ekspor Dokumen K13' : 'Ekspor Seluruh File',
       icon: FileText,
-      badge: isK13Active ? '10 Dokumen' : '14 Dokumen',
-      show: true,
+      badge: isK13Active ? '10 Dokumen' : '13 Dokumen',
     },
   ];
-
-  const tabs = allTabs.filter((tab) => tab.show);
 
   return (
     <div className="space-y-6" id="administration-hub">
       {/* Top Context Bar */}
-      <div className="bg-slate-900 text-white rounded-2xl p-5 shadow-sm border border-slate-800">
+      <div className="bg-slate-900 text-white rounded-2xl p-5 shadow-xs border border-slate-800">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-start gap-4">
             <div className="w-12 h-12 rounded-xl bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center shrink-0 text-indigo-400">
@@ -243,7 +210,7 @@ export const AdministrationHub: React.FC<AdministrationHubProps> = ({
                   <Clock className="w-3.5 h-3.5 text-slate-400" />
                   <span>
                     {isK13Active
-                      ? `${k13Analysis?.items?.length || 0} Pasang KD`
+                      ? `${k13Analysis?.items?.length || 0} Butir KD`
                       : `${atp?.items?.reduce((a, b) => a + (Number(b.jp) || 0), 0) || 0} Total JP`}
                   </span>
                 </span>
@@ -254,10 +221,10 @@ export const AdministrationHub: React.FC<AdministrationHubProps> = ({
           <div className="flex items-center gap-2 self-start lg:self-center">
             <button
               type="button"
-              onClick={() => onBackToStep(isK13Active ? 'k13-kkm' : 'atp')}
+              onClick={() => onBackToStep(isK13Active ? 'k13-tujuan' : 'atp')}
               className="text-xs text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 transition-colors cursor-pointer"
             >
-              {isK13Active ? '← Kembali ke KKM (05)' : '← Kembali ke Alur ATP (06)'}
+              {isK13Active ? '← Kembali ke Tujuan & IPK (05)' : '← Kembali ke Alur ATP (06)'}
             </button>
           </div>
         </div>
@@ -273,7 +240,7 @@ export const AdministrationHub: React.FC<AdministrationHubProps> = ({
                 id={`tab-${tab.id}`}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`p-3 rounded-xl text-left transition-all relative ${
+                className={`p-3 rounded-xl text-left transition-all relative cursor-pointer ${
                   isActive
                     ? 'bg-indigo-600 text-white shadow-md'
                     : 'bg-slate-800/60 text-slate-300 hover:bg-slate-800 hover:text-white'
@@ -282,7 +249,7 @@ export const AdministrationHub: React.FC<AdministrationHubProps> = ({
                 <div className="flex justify-between items-start mb-1">
                   <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                   <span
-                    className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
                       isActive
                         ? 'bg-white/20 text-white'
                         : 'bg-slate-700 text-slate-300'
@@ -317,28 +284,17 @@ export const AdministrationHub: React.FC<AdministrationHubProps> = ({
           />
         )}
 
-        {activeTab === 'attendance' && (
-          <AttendanceManager
-            school={school}
-            profile={profile}
-            academicSetting={academicSetting}
-            tp={tp}
-            students={students}
-            attendanceSessions={attendanceSessions}
-            attendanceRecords={attendanceRecords}
-            onSaveStudents={onSaveStudents}
-            onSaveSessions={onSaveAttendance}
-          />
-        )}
-
         {activeTab === 'kktp' && (
           <KKTPManager
             school={school}
             profile={profile}
             academicSetting={academicSetting}
             tp={tp}
+            k13Analysis={k13Analysis}
+            k13KKM={k13KKM}
             assessmentCriteria={assessmentCriteria}
             onSaveCriteria={onSaveCriteria}
+            onSaveK13KKM={onSaveK13KKM}
           />
         )}
 
@@ -364,6 +320,20 @@ export const AdministrationHub: React.FC<AdministrationHubProps> = ({
           />
         )}
 
+        {activeTab === 'attendance' && (
+          <AttendanceManager
+            school={school}
+            profile={profile}
+            academicSetting={academicSetting}
+            tp={tp}
+            students={students}
+            attendanceSessions={attendanceSessions}
+            attendanceRecords={attendanceRecords}
+            onSaveStudents={onSaveStudents}
+            onSaveSessions={onSaveAttendance}
+          />
+        )}
+
         {activeTab === 'follow_up' && (
           <FollowUpManager
             school={school}
@@ -375,18 +345,6 @@ export const AdministrationHub: React.FC<AdministrationHubProps> = ({
             enrichments={enrichments}
             onSaveRemedials={onSaveRemedials}
             onSaveEnrichments={onSaveEnrichments}
-          />
-        )}
-
-        {activeTab === 'k13' && (
-          <K13Manager
-            school={school}
-            profile={profile}
-            academicSetting={academicSetting}
-            k13Analysis={k13Analysis}
-            k13KKM={k13KKM}
-            onSaveK13Analysis={onSaveK13Analysis}
-            onSaveK13KKM={onSaveK13KKM}
           />
         )}
 
